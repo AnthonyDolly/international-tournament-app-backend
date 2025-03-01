@@ -40,7 +40,7 @@ export class GroupsService {
     if (error.code === 11000) {
       console.log(error);
       throw new BadRequestException(
-        `Bombo already exists in the database ${JSON.stringify(
+        `Group already exists in the database ${JSON.stringify(
           error.keyValue,
         )}`,
       );
