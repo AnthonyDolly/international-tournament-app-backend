@@ -4,6 +4,7 @@
 /build
 
 mongo/
+uploads/
 
 # Logs
 logs
