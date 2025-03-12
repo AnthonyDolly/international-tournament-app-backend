@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { envs } from './config/envs';
 import { GroupsModule } from './groups/groups.module';
 import { TournamentsModule } from './tournaments/tournaments.module';
+import { TeamsModule } from './teams/teams.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { TournamentsModule } from './tournaments/tournaments.module';
     BombosModule,
     GroupsModule,
     TournamentsModule,
+    TeamsModule,
   ],
   controllers: [],
   providers: [],
