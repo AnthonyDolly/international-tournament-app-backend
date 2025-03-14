@@ -40,7 +40,7 @@ export class Team {
     ref: Bombo.name,
     required: true,
   })
-  bombo: Bombo | Types.ObjectId;
+  bombo: Bombo;
 
   @Prop({
     required: false,

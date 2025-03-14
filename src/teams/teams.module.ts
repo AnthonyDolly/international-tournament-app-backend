@@ -3,6 +3,7 @@ import { TeamsService } from './teams.service';
 import { TeamsController } from './teams.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Team, TeamSchema } from './entities/team.entity';
+import { BombosModule } from 'src/bombos/bombos.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Team, TeamSchema } from './entities/team.entity';
         schema: TeamSchema,
       },
     ]),
+    BombosModule,
   ],
   controllers: [TeamsController],
   providers: [TeamsService],

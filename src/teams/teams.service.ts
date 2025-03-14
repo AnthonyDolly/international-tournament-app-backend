@@ -10,17 +10,26 @@ import { Model } from 'mongoose';
 import { Team, TeamDocument } from './entities/team.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
+import { BombosService } from 'src/bombos/bombos.service';
 
 @Injectable()
 export class TeamsService {
-  constructor(@InjectModel(Team.name) private teamModel: Model<TeamDocument>) {}
+  constructor(
+    @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
+    private readonly bomboService: BombosService,
+  ) {}
 
   async create(createTeamDto: CreateTeamDto) {
-    const newTeam = new this.teamModel({
-      ...createTeamDto,
-    });
+    try {
+      await this.bomboService.findOne(createTeamDto.bombo);
 
-    return newTeam.save();
+      return await this.teamModel.create(createTeamDto);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.handleExceptions(error);
+    }
   }
 
   async uploadLogo(id: string, file: Express.Multer.File) {
@@ -53,15 +62,38 @@ export class TeamsService {
   }
 
   async findAll() {
-    const teams = await this.teamModel.find().exec();
-    return teams.map((team) => ({
-      ...team.toObject(),
-      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
-    }));
+    const teams = await this.teamModel
+      .find({ isParticipating: true })
+      .sort({ isCurrentChampion: -1 })
+      .populate({ path: 'bombo', select: 'name' });
+
+    const groupedTeams = {
+      'Bombo 1': [],
+      'Bombo 2': [],
+      'Bombo 3': [],
+      'Bombo 4': [],
+    };
+
+    teams.forEach((team) => {
+      const bomboName = team.bombo.name;
+
+      if (groupedTeams[bomboName]) {
+        groupedTeams[bomboName].push({
+          id: team._id,
+          name: team.name,
+          logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
+        });
+      }
+    });
+
+    return groupedTeams;
   }
 
   async findOne(id: string) {
-    const team = await this.teamModel.findById(id);
+    const team = await this.teamModel.findById(id).populate({
+      path: 'bombo',
+      select: 'name',
+    });
 
     if (!team) {
       throw new BadRequestException(`Team with id ${id} not found`);
@@ -98,10 +130,12 @@ export class TeamsService {
   private handleExceptions(error: any) {
     if (error.code === 11000) {
       console.log(error);
+      const keyValueString = Object.entries(error.keyValue)
+        .map(([key, value]) => `${key}: '${value}'`)
+        .join(', ');
+
       throw new BadRequestException(
-        `Tournament already exists in the database ${JSON.stringify(
-          error.keyValue,
-        )}`,
+        `Team already exists in the database { ${keyValueString} }`,
       );
     }
     console.log(error);
