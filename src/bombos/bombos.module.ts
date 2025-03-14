@@ -15,5 +15,6 @@ import { Bombo, BomboSchema } from './entities/bombo.entity';
   ],
   controllers: [BombosController],
   providers: [BombosService],
+  exports: [BombosService],
 })
 export class BombosModule {}
