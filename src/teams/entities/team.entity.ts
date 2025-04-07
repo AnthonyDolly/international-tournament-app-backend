@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
-import { Bombo } from 'src/bombos/entities/bombo.entity';
 
 export type TeamDocument = HydratedDocument<Team>;
 
@@ -36,11 +35,11 @@ export class Team {
   country: string;
 
   @Prop({
-    type: Types.ObjectId,
-    ref: Bombo.name,
     required: true,
+    enum: [1, 2, 3, 4],
+    type: Number,
   })
-  bombo: Bombo;
+  bombo: number;
 
   @Prop({
     required: false,

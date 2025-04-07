@@ -1,7 +1,7 @@
 import {
   IsBoolean,
   IsIn,
-  IsMongoId,
+  IsNotEmpty,
   IsOptional,
   IsString,
 } from 'class-validator';
@@ -27,8 +27,11 @@ export class CreateTeamDto {
   )
   country: string;
 
-  @IsMongoId({ message: 'bombo must be a valid MongoDB ObjectId' })
-  bombo: string;
+  @IsIn([1, 2, 3, 4], {
+    message: 'bombo must be one of the values: 1, 2, 3, or 4',
+  })
+  @IsNotEmpty()
+  bombo: number;
 
   @IsBoolean({
     message: 'isParticipating must be a boolean value',

@@ -10,19 +10,13 @@ import { Model } from 'mongoose';
 import { Team, TeamDocument } from './entities/team.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
-import { BombosService } from 'src/bombos/bombos.service';
 
 @Injectable()
 export class TeamsService {
-  constructor(
-    @InjectModel(Team.name) private teamModel: Model<TeamDocument>,
-    private readonly bomboService: BombosService,
-  ) {}
+  constructor(@InjectModel(Team.name) private teamModel: Model<TeamDocument>) {}
 
   async create(createTeamDto: CreateTeamDto) {
     try {
-      await this.bomboService.findOne(createTeamDto.bombo);
-
       return await this.teamModel.create(createTeamDto);
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -64,29 +58,12 @@ export class TeamsService {
   async findAll() {
     const teams = await this.teamModel
       .find({ isParticipating: true })
-      .sort({ isCurrentChampion: -1 })
-      .populate({ path: 'bombo', select: 'name' });
+      .sort({ isCurrentChampion: -1 });
 
-    const groupedTeams = {
-      'Bombo 1': [],
-      'Bombo 2': [],
-      'Bombo 3': [],
-      'Bombo 4': [],
-    };
-
-    teams.forEach((team) => {
-      const bomboName = team.bombo.name;
-
-      if (groupedTeams[bomboName]) {
-        groupedTeams[bomboName].push({
-          id: team._id,
-          name: team.name,
-          logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
-        });
-      }
-    });
-
-    return groupedTeams;
+    return teams.map((team) => ({
+      ...team.toObject(),
+      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
+    }));
   }
 
   async findOne(id: string) {
