@@ -15,5 +15,6 @@ import { Tournament, TournamentSchema } from './entities/tournament.entity';
   ],
   controllers: [TournamentsController],
   providers: [TournamentsService],
+  exports: [TournamentsService],
 })
 export class TournamentsModule {}
