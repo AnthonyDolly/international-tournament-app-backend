@@ -15,5 +15,6 @@ import { Team, TeamSchema } from './entities/team.entity';
   ],
   controllers: [TeamsController],
   providers: [TeamsService],
+  exports: [TeamsService],
 })
 export class TeamsModule {}

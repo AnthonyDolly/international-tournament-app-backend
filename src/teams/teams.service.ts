@@ -104,6 +104,25 @@ export class TeamsService {
     }
   }
 
+  async findByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    if (ids.some((id) => id.length !== 24)) {
+      throw new BadRequestException('Invalid ObjectId');
+    }
+
+    const teams = await this.teamModel
+      .find({ _id: { $in: ids } })
+      .sort({ isCurrentChampion: -1 });
+
+    return teams.map((team) => ({
+      ...team.toObject(),
+      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
+    }));
+  }
+
   private handleExceptions(error: any) {
     if (error.code === 11000) {
       console.log(error);
