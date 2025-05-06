@@ -107,9 +107,9 @@ export class TournamentTeamsService {
   async findOne(id: string) {
     const tournamentTeam = await this.tournamentTeamModel
       .findById(id)
-      .populate({ path: 'tournament', select: 'name year' })
+      .populate({ path: 'tournamentId', select: 'name year' })
       .populate({
-        path: 'team',
+        path: 'teamId',
         select: '-isParticipating',
         populate: { path: 'bombo', select: 'name' },
       })
@@ -124,7 +124,7 @@ export class TournamentTeamsService {
 
   async findByTournament(id: string) {
     const tournamentTeam = await this.tournamentTeamModel
-      .find({ tournament: id })
+      .find({ tournamentId: id })
       .populate({ path: 'tournamentId', select: 'name year' })
       .populate({
         path: 'teamId',
