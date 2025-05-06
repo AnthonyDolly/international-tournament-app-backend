@@ -12,17 +12,17 @@ export class TournamentTeam {
     ref: Tournament.name,
     required: true,
   })
-  tournament: Tournament;
+  tournamentId: Tournament;
 
   @Prop({
     type: Types.ObjectId,
     ref: Team.name,
     required: true,
   })
-  team: Team;
+  teamId: Team;
 }
 
 export const TournamentTeamSchema =
   SchemaFactory.createForClass(TournamentTeam);
 
-TournamentTeamSchema.index({ tournament: 1, team: 1 }, { unique: true });
+TournamentTeamSchema.index({ tournamentId: 1, teamId: 1 }, { unique: true });

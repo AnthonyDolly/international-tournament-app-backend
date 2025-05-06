@@ -3,12 +3,12 @@ import { IsArray, IsMongoId, ValidateNested } from 'class-validator';
 
 export class CreateTournamentTeamDto {
   @IsMongoId({ message: 'team must be a valid MongoDB ObjectId' })
-  team: string;
+  teamId: string;
 }
 
 export class CreateTournamentTeamsDto {
   @IsMongoId({ message: 'tournament must be a valid MongoDB ObjectId' })
-  tournament: string;
+  tournamentId: string;
 
   @IsArray()
   @ValidateNested({ each: true }) // 🔥 Valida cada elemento del array

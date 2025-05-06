@@ -54,11 +54,11 @@ export class TournamentTeamsService {
   async create(createTournamentTeamsDto: CreateTournamentTeamsDto) {
     try {
       await this.tournamentsService.findOne(
-        createTournamentTeamsDto.tournament,
+        createTournamentTeamsDto.tournamentId,
       );
 
       const teams = await this.teamsService.findByIds(
-        createTournamentTeamsDto.teams.map((team) => team.team),
+        createTournamentTeamsDto.teams.map((team) => team.teamId),
       );
 
       if (teams.length !== createTournamentTeamsDto.teams.length) {
@@ -68,8 +68,8 @@ export class TournamentTeamsService {
       }
 
       const existingTeams = await this.tournamentTeamModel.find({
-        tournament: createTournamentTeamsDto.tournament,
-        team: { $in: createTournamentTeamsDto.teams.map((team) => team.team) },
+        tournament: createTournamentTeamsDto.tournamentId,
+        team: { $in: createTournamentTeamsDto.teams.map((team) => team.teamId) },
       });
 
       if (existingTeams && existingTeams.length > 0) {
@@ -80,7 +80,7 @@ export class TournamentTeamsService {
 
       const tournamentTeams = createTournamentTeamsDto.teams.map((team) => ({
         ...team,
-        tournament: createTournamentTeamsDto.tournament,
+        tournament: createTournamentTeamsDto.tournamentId,
       }));
 
       return await this.tournamentTeamModel.insertMany(tournamentTeams);
@@ -95,9 +95,9 @@ export class TournamentTeamsService {
   async findAll() {
     return await this.tournamentTeamModel
       .find()
-      .populate({ path: 'tournament', select: 'name year' })
+      .populate({ path: 'tournamentId', select: 'name year' })
       .populate({
-        path: 'team',
+        path: 'teamId',
         select: '-isParticipating',
         populate: { path: 'bombo', select: 'name' },
       })
@@ -125,9 +125,9 @@ export class TournamentTeamsService {
   async findByTournament(id: string) {
     const tournamentTeam = await this.tournamentTeamModel
       .find({ tournament: id })
-      .populate({ path: 'tournament', select: 'name year' })
+      .populate({ path: 'tournamentId', select: 'name year' })
       .populate({
-        path: 'team',
+        path: 'teamId',
         select: '-isParticipating',
         populate: { path: 'bombo', select: 'name' },
       });
@@ -154,7 +154,7 @@ export class TournamentTeamsService {
 
     // Convertir los equipos al formato necesario para el algoritmo
     const equipos: Equipo[] = tournamentTeams.map((teamEntry) => {
-      const teamData = teamEntry.team as unknown as Equipo;
+      const teamData = teamEntry.teamId as unknown as Equipo;
       return new Equipo(
         teamData.name,
         teamData.country,
