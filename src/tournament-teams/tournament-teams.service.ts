@@ -6,7 +6,7 @@ import {
 import { CreateTournamentTeamsDto } from './dto/create-tournament-team.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { TournamentTeam } from './entities/tournament-team.entity';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
 import { TeamsService } from 'src/teams/teams.service';
 
@@ -68,8 +68,10 @@ export class TournamentTeamsService {
       }
 
       const existingTeams = await this.tournamentTeamModel.find({
-        tournament: createTournamentTeamsDto.tournamentId,
-        team: { $in: createTournamentTeamsDto.teams.map((team) => team.teamId) },
+        tournamentId: createTournamentTeamsDto.tournamentId,
+        teamId: {
+          $in: createTournamentTeamsDto.teams.map((team) => team.teamId),
+        },
       });
 
       if (existingTeams && existingTeams.length > 0) {
@@ -79,8 +81,8 @@ export class TournamentTeamsService {
       }
 
       const tournamentTeams = createTournamentTeamsDto.teams.map((team) => ({
-        ...team,
-        tournament: createTournamentTeamsDto.tournamentId,
+        tournamentId: new Types.ObjectId(createTournamentTeamsDto.tournamentId),
+        teamId: new Types.ObjectId(team.teamId),
       }));
 
       return await this.tournamentTeamModel.insertMany(tournamentTeams);
@@ -186,7 +188,9 @@ export class TournamentTeamsService {
           name: equipo.name,
           country: equipo.country,
           bombo: equipo.bombo,
-          logo: equipo.logo ? `http://localhost:3000/uploads/${equipo.logo}` : null,
+          logo: equipo.logo
+            ? `http://localhost:3000/uploads/${equipo.logo}`
+            : null,
           isCurrentChampion: equipo.isCurrentChampion,
           isFromQualifiers: equipo.isFromQualifiers,
         })),
