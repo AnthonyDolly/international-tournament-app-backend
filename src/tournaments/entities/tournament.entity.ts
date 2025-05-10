@@ -7,16 +7,16 @@ export type TournamentDocument = HydratedDocument<Tournament>;
 export class Tournament {
   @Prop({
     required: true,
-    unique: true,
     uppercase: true,
   })
   name: string;
 
   @Prop({
     required: true,
-    unique: true,
   })
   year: number;
 }
 
 export const TournamentSchema = SchemaFactory.createForClass(Tournament);
+
+TournamentSchema.index({ name: 1, year: 1 }, { unique: true });
