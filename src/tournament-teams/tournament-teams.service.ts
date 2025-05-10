@@ -68,9 +68,11 @@ export class TournamentTeamsService {
       }
 
       const existingTeams = await this.tournamentTeamModel.find({
-        tournamentId: createTournamentTeamsDto.tournamentId,
+        tournamentId: new Types.ObjectId(createTournamentTeamsDto.tournamentId),
         teamId: {
-          $in: createTournamentTeamsDto.teams.map((team) => team.teamId),
+          $in: createTournamentTeamsDto.teams.map(
+            (team) => new Types.ObjectId(team.teamId),
+          ),
         },
       });
 
@@ -126,7 +128,7 @@ export class TournamentTeamsService {
 
   async findByTournament(id: string) {
     const tournamentTeam = await this.tournamentTeamModel
-      .find({ tournamentId: id })
+      .find({ tournamentId: new Types.ObjectId(id) })
       .populate({ path: 'tournamentId', select: 'name year' })
       .populate({
         path: 'teamId',
@@ -141,6 +143,22 @@ export class TournamentTeamsService {
     }
 
     return tournamentTeam;
+  }
+
+  async findByIds(ids: string[]) {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    if (ids.some((id) => id.length !== 24)) {
+      throw new BadRequestException('Invalid ObjectId');
+    }
+
+    const tournamentTeams = await this.tournamentTeamModel.find({
+      _id: { $in: ids },
+    });
+
+    return tournamentTeams;
   }
 
   async groupStageDraw(tournamentId: string) {
@@ -368,7 +386,7 @@ export class TournamentTeamsService {
         .join(', ');
 
       throw new BadRequestException(
-        `Team already exists in the database { ${keyValueString} }`,
+        `Tournament Team already exists in the database { ${keyValueString} }`,
       );
     }
     console.log(error);
