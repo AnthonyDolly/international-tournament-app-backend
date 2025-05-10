@@ -113,14 +113,9 @@ export class TeamsService {
       throw new BadRequestException('Invalid ObjectId');
     }
 
-    const teams = await this.teamModel
-      .find({ _id: { $in: ids } })
-      .sort({ isCurrentChampion: -1 });
+    const teams = await this.teamModel.find({ _id: { $in: ids } });
 
-    return teams.map((team) => ({
-      ...team.toObject(),
-      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
-    }));
+    return teams;
   }
 
   private handleExceptions(error: any) {
