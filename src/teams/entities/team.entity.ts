@@ -5,6 +5,8 @@ export type TeamDocument = HydratedDocument<Team>;
 
 @Schema()
 export class Team {
+  _id: Types.ObjectId;
+
   @Prop({
     required: true,
     lowercase: true,
