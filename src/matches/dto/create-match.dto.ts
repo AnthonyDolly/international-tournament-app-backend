@@ -14,17 +14,13 @@ export class CreateMatchDto {
   tournamentId: string;
 
   @IsNotEmpty()
-  @IsIn(
-    [
-      'preliminary',
-      'groupStage',
-      'roundOf16',
-      'quarterFinals',
-      'semiFinals',
-      'final',
-    ],
-    { message: 'stage must be a valid stage' },
-  )
+  @IsMongoId()
+  groupId: string;
+
+  @IsNotEmpty()
+  @IsIn(['qualifyingStage', 'groupStage', 'knockoutStage'], {
+    message: 'stage must be a valid stage',
+  })
   stage: string;
 
   @IsOptional()

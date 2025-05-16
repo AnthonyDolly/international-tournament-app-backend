@@ -12,14 +12,7 @@ export class Match {
 
   @Prop({
     required: true,
-    enum: [
-      'preliminary',
-      'groupStage',
-      'roundOf16',
-      'quarterFinals',
-      'semiFinals',
-      'final',
-    ],
+    enum: ['qualifyingStage', 'groupStage', 'knockoutStage'],
   })
   stage: string;
 
