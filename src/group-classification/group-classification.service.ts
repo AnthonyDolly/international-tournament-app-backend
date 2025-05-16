@@ -65,9 +65,13 @@ export class GroupClassificationService {
       // Group by group name
       {
         $group: {
-          _id: '$groupInfo.name',
+          _id: {
+            id: '$groupInfo._id',
+            name: '$groupInfo.name',
+          },
           teams: {
             $push: {
+              tournamentTeamId: '$tournamentTeamInfo._id',
               id: '$teamInfo._id',
               name: '$teamInfo.name',
               logo: '$teamInfo.logo',
@@ -88,12 +92,15 @@ export class GroupClassificationService {
       {
         $project: {
           _id: 0,
-          group: '$_id',
+          group: {
+            id: '$_id.id',
+            name: '$_id.name',
+          },
           teams: 1,
         },
       },
       // Optional: sort by group name (A, B, ...)
-      { $sort: { group: 1 } },
+      { $sort: { 'group.name': 1 } },
     ]);
 
     const reorderedGroups = groups.map((group) => ({

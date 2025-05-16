@@ -22,5 +22,6 @@ import { GroupsModule } from 'src/groups/groups.module';
   ],
   controllers: [GroupClassificationController],
   providers: [GroupClassificationService],
+  exports: [GroupClassificationService],
 })
 export class GroupClassificationModule {}
