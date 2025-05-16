@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { CreateGroupClassificationsDto } from './dto/create-group-classification.dto';
 import { InjectModel } from '@nestjs/mongoose';
@@ -112,6 +113,10 @@ export class GroupClassificationService {
         return b.goalsFor - a.goalsFor;
       }),
     }));
+
+    if (reorderedGroups.length === 0) {
+      throw new NotFoundException('Group classification not found');
+    }
 
     return { groups: reorderedGroups };
   }
