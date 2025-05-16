@@ -120,7 +120,7 @@ export class TournamentTeamsService {
       .exec();
 
     if (!tournamentTeam) {
-      throw new BadRequestException(`Tournament Team with id ${id} not found`);
+      throw new BadRequestException(`tournamentTeam with id ${id} not found`);
     }
 
     return tournamentTeam;
@@ -138,7 +138,7 @@ export class TournamentTeamsService {
 
     if (!tournamentTeam || tournamentTeam.length === 0) {
       throw new BadRequestException(
-        `No Tournament Teams found for tournament with id ${id}`,
+        `No tournamentTeams found for tournament with id ${id}`,
       );
     }
 
@@ -168,7 +168,7 @@ export class TournamentTeamsService {
 
     if (tournamentTeams.length !== 32) {
       throw new BadRequestException(
-        'Tournament must have exactly 32 teams for the group stage draw',
+        'tournament must have exactly 32 teams for the group stage draw',
       );
     }
 
