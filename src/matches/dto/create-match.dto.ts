@@ -18,15 +18,11 @@ export class CreateMatchDto {
   groupId: string;
 
   @IsNotEmpty()
-  @IsIn(['qualifyingStage', 'groupStage', 'knockoutStage'], {
-    message: 'stage must be a valid stage',
-  })
+  @IsIn(['qualifyingStage', 'groupStage', 'knockoutStage'])
   stage: string;
 
   @IsOptional()
-  @IsIn([1, 2, 3, 4, 5, 6], {
-    message: 'matchDay must be a valid matchday',
-  })
+  @IsIn([1, 2, 3, 4, 5, 6])
   matchDay: number;
 
   @IsNotEmpty()
@@ -37,14 +33,6 @@ export class CreateMatchDto {
   @IsMongoId()
   awayTeamId: string;
 
-  @IsOptional()
-  @IsInt()
-  homeGoals: number;
-
-  @IsOptional()
-  @IsInt()
-  awayGoals: number;
-
   @IsNotEmpty()
   @IsDate()
   matchDate: Date;
@@ -54,8 +42,6 @@ export class CreateMatchDto {
   stadium: string;
 
   @IsOptional()
-  @IsIn(['firstLeg', 'secondLeg', 'singleMatch'], {
-    message: 'matchType must be a valid match type',
-  })
+  @IsIn(['firstLeg', 'secondLeg', 'singleMatch'])
   matchType: string;
 }

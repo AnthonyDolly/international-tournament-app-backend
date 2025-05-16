@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { CreateMatchDto } from './dto/create-match.dto';
 import { UpdateMatchDto } from './dto/update-match.dto';
@@ -11,6 +12,7 @@ import { Model, Types } from 'mongoose';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
 import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
 import { GroupClassificationService } from 'src/group-classification/group-classification.service';
+import { MatchResponse } from './interfaces/match.interface';
 
 @Injectable()
 export class MatchesService {
@@ -21,92 +23,38 @@ export class MatchesService {
     private readonly groupClassificationService: GroupClassificationService,
   ) {}
 
-  async create(createMatchDto: CreateMatchDto) {
+  async create(createMatchDto: CreateMatchDto): Promise<MatchResponse> {
     try {
       const { groupId, ...matchData } = createMatchDto;
 
-      // Validate matchDay for group stage
-      if (matchData.stage === 'groupStage' && !matchData.matchDay) {
-        throw new BadRequestException(
-          'matchDay is required for group stage matches, put a number between 1 and 6',
-        );
-      }
+      this.validateMatchDay(matchData);
 
-      // Fetch all required data in parallel
       const [groupClassification, tournament, homeTeam, awayTeam] =
-        await Promise.all([
-          this.groupClassificationService.findByTournamentIdAndGroupId(
-            matchData.tournamentId,
-            groupId,
-          ),
-          this.tournamentService.findOne(matchData.tournamentId),
-          this.tournamentTeamService.findOne(matchData.homeTeamId),
-          this.tournamentTeamService.findOne(matchData.awayTeamId),
-        ]);
+        await this.fetchRequiredEntities(matchData, groupId);
 
-      // Validate group classification
-      if (groupClassification.groups.length === 0) {
-        throw new BadRequestException('Group classification not found');
-      }
-
-      // Validate tournament and teams exist
-      if (!tournament || !homeTeam || !awayTeam) {
-        throw new BadRequestException(
-          'tournament, homeTeam or awayTeam not found',
-        );
-      }
-
-      const tournamentId = tournament._id.toString();
-
-      // Validate teams belong to tournament
-      if (
-        homeTeam.tournamentId._id.toString() !== tournamentId ||
-        awayTeam.tournamentId._id.toString() !== tournamentId
-      ) {
-        throw new BadRequestException('teams must belong to the tournament');
-      }
-
-      // Validate teams are different
-      if (homeTeam.teamId._id.toString() === awayTeam.teamId._id.toString()) {
-        throw new BadRequestException(
-          'homeTeam and awayTeam are the same team',
-        );
-      }
-
-      // Validate teams belong to the group
-      const teamsInGroup = groupClassification.groups[0].teams;
-      const homeTeamInGroup = teamsInGroup.some(
-        (team) =>
-          team.tournamentTeamId.toString() === matchData.homeTeamId.toString(),
+      this.validateTeamTournamentRelation(
+        tournament._id,
+        homeTeam.tournamentId._id,
+        awayTeam.tournamentId._id,
       );
-      const awayTeamInGroup = teamsInGroup.some(
-        (team) =>
-          team.tournamentTeamId.toString() === matchData.awayTeamId.toString(),
-      );
+      this.validateTeamDifference(homeTeam.teamId._id, awayTeam.teamId._id);
+      this.validateTeamsInGroup(groupClassification, matchData);
 
-      if (!homeTeamInGroup || !awayTeamInGroup) {
-        throw new BadRequestException(
-          'homeTeamId or awayTeamId is not in the group',
-        );
-      }
-
-      // Create match with validated data
-      return await this.matchModel.create({
+      const match = await this.matchModel.create({
         ...matchData,
         tournamentId: tournament._id,
         homeTeamId: homeTeam._id,
         awayTeamId: awayTeam._id,
       });
+
+      return this.findOne(match._id.toString());
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
       this.handleExceptions(error);
     }
   }
 
-  async findAll() {
-    return await this.matchModel
+  async findAll(): Promise<MatchResponse[]> {
+    const matches = await this.matchModel
       .find()
       .populate({
         path: 'tournamentId',
@@ -127,11 +75,23 @@ export class MatchesService {
           path: 'teamId',
           select: '-_id name logo',
         },
-      });
+      })
+      .lean();
+
+    return matches.map((match) => {
+      const { tournamentId, homeTeamId, awayTeamId, ...rest } = match;
+      const transformedMatch = {
+        ...rest,
+        tournament: tournamentId,
+        homeTeam: homeTeamId,
+        awayTeam: awayTeamId,
+      };
+      return transformedMatch as unknown as MatchResponse;
+    });
   }
 
-  async findOne(id: string) {
-    const objectId = new this.matchModel.base.Types.ObjectId(id);
+  async findOne(id: string): Promise<MatchResponse> {
+    const objectId = new Types.ObjectId(id);
 
     const result = await this.matchModel.aggregate([
       { $match: { _id: objectId } },
@@ -240,40 +200,127 @@ export class MatchesService {
       },
     ]);
 
-    if (!result.length) throw new BadRequestException('Match not found');
-    const raw = result[0];
-    return {
-      _id: raw._id,
-      tournament: raw.tournament,
-      matchDate: raw.matchDate,
-      homeTeam: raw.homeTeam,
-      awayTeam: raw.awayTeam,
-      homeGoals: raw.homeGoals,
-      awayGoals: raw.awayGoals,
-      stage: raw.stage,
-      group: raw.group,
-      matchDay: raw.matchDay,
-      matchType: raw.matchType,
-      stadium: raw.stadium,
-      status: raw.status,
-    };
+    if (!result.length) {
+      throw new NotFoundException(`Match with ID ${id} not found`);
+    }
+
+    return result[0] as MatchResponse;
   }
 
-  async update(id: string, updateMatchDto: UpdateMatchDto) {
+  async update(
+    id: string,
+    updateMatchDto: UpdateMatchDto,
+  ): Promise<MatchResponse> {
     await this.findOne(id);
-    return await this.matchModel.findByIdAndUpdate(id, updateMatchDto, {
-      new: true,
-    });
+
+    const updatedMatch = await this.matchModel
+      .findByIdAndUpdate(id, updateMatchDto, { new: true })
+      .lean();
+
+    if (!updatedMatch) {
+      throw new NotFoundException(`Match with ID ${id} not found`);
+    }
+
+    return this.findOne(id);
   }
 
-  private handleExceptions(error: any) {
+  private validateMatchDay(matchData: Partial<CreateMatchDto>): void {
+    if (matchData.stage === 'groupStage' && !matchData.matchDay) {
+      throw new BadRequestException(
+        'Match day is required for group stage matches (1-6)',
+      );
+    }
+  }
+
+  private async fetchRequiredEntities(
+    matchData: Partial<CreateMatchDto>,
+    groupId: string,
+  ) {
+    if (
+      !matchData.tournamentId ||
+      !matchData.homeTeamId ||
+      !matchData.awayTeamId
+    ) {
+      throw new BadRequestException(
+        'Missing required fields: tournamentId, homeTeamId, or awayTeamId',
+      );
+    }
+
+    return Promise.all([
+      this.groupClassificationService.findByTournamentIdAndGroupId(
+        matchData.tournamentId,
+        groupId,
+      ),
+      this.tournamentService.findOne(matchData.tournamentId),
+      this.tournamentTeamService.findOne(matchData.homeTeamId),
+      this.tournamentTeamService.findOne(matchData.awayTeamId),
+    ]);
+  }
+
+  private validateTeamTournamentRelation(
+    tournamentId: Types.ObjectId,
+    homeTeamId: Types.ObjectId,
+    awayTeamId: Types.ObjectId,
+  ): void {
+    if (
+      tournamentId.toString() !== homeTeamId.toString() ||
+      tournamentId.toString() !== awayTeamId.toString()
+    ) {
+      throw new BadRequestException(
+        'One or both teams are not part of the specified tournament',
+      );
+    }
+  }
+
+  private validateTeamDifference(
+    homeTeamId: Types.ObjectId,
+    awayTeamId: Types.ObjectId,
+  ): void {
+    if (homeTeamId.toString() === awayTeamId.toString()) {
+      throw new BadRequestException(
+        'Home team and away team cannot be the same',
+      );
+    }
+  }
+
+  private validateTeamsInGroup(
+    groupClassification: any,
+    matchData: Partial<CreateMatchDto>,
+  ): void {
+    if (!matchData.homeTeamId || !matchData.awayTeamId) {
+      throw new BadRequestException(
+        'Missing required fields: homeTeamId or awayTeamId',
+      );
+    }
+
+    const teams = groupClassification.groups[0].teams;
+    const inGroup = (id: string) =>
+      teams.some((t) => t.tournamentTeamId.toString() === id.toString());
+
+    if (!inGroup(matchData.homeTeamId) || !inGroup(matchData.awayTeamId)) {
+      throw new BadRequestException(
+        'One or both teams are not in the specified group',
+      );
+    }
+  }
+
+  private handleExceptions(error: any): never {
+    if (
+      error instanceof BadRequestException ||
+      error instanceof NotFoundException
+    ) {
+      throw error;
+    }
+
     if (error.code === 11000) {
-      console.log(error);
       throw new BadRequestException(
         `A match already exists with the same tournament, stage, matchDay, homeTeam, and awayTeam: ${JSON.stringify(error.keyValue)}`,
       );
     }
-    console.log(error);
-    throw new InternalServerErrorException(`Check Server logs`);
+
+    console.error('Unexpected error:', error);
+    throw new InternalServerErrorException(
+      'An unexpected error occurred. Please check server logs.',
+    );
   }
 }

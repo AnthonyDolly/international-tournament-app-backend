@@ -1,11 +1,26 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { CreateMatchDto } from './create-match.dto';
-import { IsIn, IsOptional } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, Min } from 'class-validator';
 
-export class UpdateMatchDto extends PartialType(CreateMatchDto) {
-  @IsOptional()
-  @IsIn(['pending', 'finished', 'cancelled'], {
-    message: 'status must be a valid status: pending, finished, cancelled',
-  })
+export class UpdateMatchDto extends PartialType(
+  OmitType(CreateMatchDto, [
+    'groupId',
+    'tournamentId',
+    'homeTeamId',
+    'awayTeamId',
+  ]),
+) {
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  homeGoals: number;
+
+  @IsNotEmpty()
+  @IsInt()
+  @Min(0)
+  awayGoals: number;
+
+  @IsNotEmpty()
+  @IsIn(['pending', 'finished', 'cancelled'])
   status: string;
 }
