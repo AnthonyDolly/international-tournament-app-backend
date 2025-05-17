@@ -1,6 +1,6 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { CreateQualifyingStageDto } from './create-qualifying-stage.dto';
-import { IsMongoId, IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+import { IsInt, IsMongoId, IsNotEmpty, IsOptional, Min } from 'class-validator';
 
 export class UpdateQualifyingStageDto extends PartialType(
   OmitType(CreateQualifyingStageDto, [
@@ -10,11 +10,13 @@ export class UpdateQualifyingStageDto extends PartialType(
   ]),
 ) {
   @IsNotEmpty()
-  @IsNumber()
+  @IsInt()
+  @Min(0)
   firstTeamAggregateGoals: number;
 
   @IsNotEmpty()
-  @IsNumber()
+  @IsInt()
+  @Min(0)
   secondTeamAggregateGoals: number;
 
   @IsOptional()
