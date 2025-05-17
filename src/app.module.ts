@@ -7,6 +7,7 @@ import { TeamsModule } from './teams/teams.module';
 import { TournamentTeamsModule } from './tournament-teams/tournament-teams.module';
 import { GroupClassificationModule } from './group-classification/group-classification.module';
 import { MatchesModule } from './matches/matches.module';
+import { QualifyingStagesModule } from './qualifying-stages/qualifying-stages.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MatchesModule } from './matches/matches.module';
     TournamentTeamsModule,
     GroupClassificationModule,
     MatchesModule,
+    QualifyingStagesModule,
   ],
   controllers: [],
   providers: [],
