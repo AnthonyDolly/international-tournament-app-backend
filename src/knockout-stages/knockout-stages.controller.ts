@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
 import { KnockoutStagesService } from './knockout-stages.service';
 import { CreateKnockoutStageDto } from './dto/create-knockout-stage.dto';
 import { UpdateKnockoutStageDto } from './dto/update-knockout-stage.dto';
+import { ValidateMongoIdPipe } from 'src/common/pipes/validate-mongo-id.pipe';
 
 @Controller('knockout-stages')
 export class KnockoutStagesController {
@@ -18,17 +27,15 @@ export class KnockoutStagesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.knockoutStagesService.findOne(+id);
+  findOne(@Param('id', ValidateMongoIdPipe) id: string) {
+    return this.knockoutStagesService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateKnockoutStageDto: UpdateKnockoutStageDto) {
-    return this.knockoutStagesService.update(+id, updateKnockoutStageDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.knockoutStagesService.remove(+id);
+  update(
+    @Param('id', ValidateMongoIdPipe) id: string,
+    @Body() updateKnockoutStageDto: UpdateKnockoutStageDto,
+  ) {
+    return this.knockoutStagesService.update(id, updateKnockoutStageDto);
   }
 }
