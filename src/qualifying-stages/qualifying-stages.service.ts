@@ -72,15 +72,25 @@ export class QualifyingStagesService {
           select: '-_id name logo',
         },
       })
+      .populate({
+        path: 'winnerTeamId',
+        select: 'teamId',
+        populate: {
+          path: 'teamId',
+          select: '-_id name logo',
+        },
+      })
       .lean();
 
     return qualifyingStages.map((stage) => {
-      const { tournamentId, firstTeamId, secondTeamId, ...rest } = stage;
+      const { tournamentId, firstTeamId, secondTeamId, winnerTeamId, ...rest } =
+        stage;
       const transformedStage = {
         ...rest,
         tournament: tournamentId,
         firstTeam: firstTeamId,
         secondTeam: secondTeamId,
+        winnerTeam: winnerTeamId,
       };
       return transformedStage as unknown as QualifyingStageResponse;
     });
@@ -161,6 +171,7 @@ export class QualifyingStagesService {
       {
         $project: {
           _id: 1,
+          qualifyingStage: 1,
           tournament: {
             name: '$tournament.name',
             year: '$tournament.year',
