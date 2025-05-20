@@ -116,11 +116,34 @@ export class MatchesService {
         knockoutStageId,
         ...rest
       } = match;
+
+      // Format home team logo
+      const homeTeam = {
+        ...homeTeamId,
+        teamId: {
+          ...homeTeamId.teamId,
+          logo: homeTeamId.teamId.logo
+            ? `http://localhost:3000/uploads/${homeTeamId.teamId.logo}`
+            : null,
+        },
+      };
+
+      // Format away team logo
+      const awayTeam = {
+        ...awayTeamId,
+        teamId: {
+          ...awayTeamId.teamId,
+          logo: awayTeamId.teamId.logo
+            ? `http://localhost:3000/uploads/${awayTeamId.teamId.logo}`
+            : null,
+        },
+      };
+
       const transformedMatch = {
         ...rest,
         tournament: tournamentId,
-        homeTeam: homeTeamId,
-        awayTeam: awayTeamId,
+        homeTeam,
+        awayTeam,
         qualifyingStage: qualifyingStageId,
         knockoutStage: knockoutStageId,
       };
@@ -233,16 +256,36 @@ export class MatchesService {
             _id: '$homeTeam._id',
             team: {
               name: '$homeTeamInfo.name',
-              logo: '$homeTeamInfo.logo',
-              _id: '$homeTeamInfo._id',
+              logo: {
+                $cond: {
+                  if: '$homeTeamInfo.logo',
+                  then: {
+                    $concat: [
+                      'http://localhost:3000/uploads/',
+                      '$homeTeamInfo.logo',
+                    ],
+                  },
+                  else: null,
+                },
+              },
             },
           },
           awayTeam: {
             _id: '$awayTeam._id',
             team: {
               name: '$awayTeamInfo.name',
-              logo: '$awayTeamInfo.logo',
-              _id: '$awayTeamInfo._id',
+              logo: {
+                $cond: {
+                  if: '$awayTeamInfo.logo',
+                  then: {
+                    $concat: [
+                      'http://localhost:3000/uploads/',
+                      '$awayTeamInfo.logo',
+                    ],
+                  },
+                  else: null,
+                },
+              },
             },
           },
           homeGoals: 1,
