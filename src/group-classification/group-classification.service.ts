@@ -76,7 +76,18 @@ export class GroupClassificationService {
               tournamentTeamId: '$tournamentTeamInfo._id',
               id: '$teamInfo._id',
               name: '$teamInfo.name',
-              logo: '$teamInfo.logo',
+              logo: {
+                $cond: {
+                  if: '$teamInfo.logo',
+                  then: {
+                    $concat: [
+                      'http://localhost:3000/uploads/',
+                      '$teamInfo.logo',
+                    ],
+                  },
+                  else: null,
+                },
+              },
               matchesPlayed: '$matchesPlayed',
               wins: '$wins',
               draws: '$draws',
