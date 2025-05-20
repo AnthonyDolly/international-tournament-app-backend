@@ -85,12 +85,45 @@ export class QualifyingStagesService {
     return qualifyingStages.map((stage) => {
       const { tournamentId, firstTeamId, secondTeamId, winnerTeamId, ...rest } =
         stage;
+
+      const homeTeam = {
+        ...firstTeamId,
+        teamId: {
+          ...firstTeamId.teamId,
+          logo: firstTeamId.teamId.logo
+            ? `http://localhost:3000/uploads/${firstTeamId.teamId.logo}`
+            : null,
+        },
+      };
+
+      const awayTeam = {
+        ...secondTeamId,
+        teamId: {
+          ...secondTeamId.teamId,
+          logo: secondTeamId.teamId.logo
+            ? `http://localhost:3000/uploads/${secondTeamId.teamId.logo}`
+            : null,
+        },
+      };
+
+      const winnerTeam = winnerTeamId
+        ? {
+            ...winnerTeamId,
+            teamId: {
+              ...winnerTeamId.teamId,
+              logo: winnerTeamId.teamId.logo
+                ? `http://localhost:3000/uploads/${winnerTeamId.teamId.logo}`
+                : null,
+            },
+          }
+        : null;
+
       const transformedStage = {
         ...rest,
         tournament: tournamentId,
-        firstTeam: firstTeamId,
-        secondTeam: secondTeamId,
-        winnerTeam: winnerTeamId,
+        firstTeam: homeTeam,
+        secondTeam: awayTeam,
+        winnerTeam: winnerTeam,
       };
       return transformedStage as unknown as QualifyingStageResponse;
     });
@@ -181,16 +214,36 @@ export class QualifyingStagesService {
             _id: '$firstTeam._id',
             team: {
               name: '$firstTeamInfo.name',
-              logo: '$firstTeamInfo.logo',
-              _id: '$firstTeamInfo._id',
+              logo: {
+                $cond: {
+                  if: '$firstTeamInfo.logo',
+                  then: {
+                    $concat: [
+                      'http://localhost:3000/uploads/',
+                      '$firstTeamInfo.logo',
+                    ],
+                  },
+                  else: null,
+                },
+              },
             },
           },
           secondTeam: {
             _id: '$secondTeam._id',
             team: {
               name: '$secondTeamInfo.name',
-              logo: '$secondTeamInfo.logo',
-              _id: '$secondTeamInfo._id',
+              logo: {
+                $cond: {
+                  if: '$secondTeamInfo.logo',
+                  then: {
+                    $concat: [
+                      'http://localhost:3000/uploads/',
+                      '$secondTeamInfo.logo',
+                    ],
+                  },
+                  else: null,
+                },
+              },
             },
           },
           firstTeamAggregateGoals: 1,
@@ -202,8 +255,18 @@ export class QualifyingStagesService {
                 _id: { $arrayElemAt: ['$winnerTeam._id', 0] },
                 team: {
                   name: { $arrayElemAt: ['$winnerTeamInfo.name', 0] },
-                  logo: { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
-                  _id: { $arrayElemAt: ['$winnerTeamInfo._id', 0] },
+                  logo: {
+                    $cond: {
+                      if: { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
+                      then: {
+                        $concat: [
+                          'http://localhost:3000/uploads/',
+                          { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
+                        ],
+                      },
+                      else: null,
+                    },
+                  },
                 },
               },
               else: null,
