@@ -12,6 +12,8 @@ import { Model, Types } from 'mongoose';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
 import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
 import { GroupClassificationService } from 'src/group-classification/group-classification.service';
+import { QualifyingStagesService } from 'src/qualifying-stages/qualifying-stages.service';
+import { KnockoutStagesService } from 'src/knockout-stages/knockout-stages.service';
 import { MatchResponse } from './interfaces/match.interface';
 
 @Injectable()
@@ -21,13 +23,26 @@ export class MatchesService {
     private readonly tournamentService: TournamentsService,
     private readonly tournamentTeamService: TournamentTeamsService,
     private readonly groupClassificationService: GroupClassificationService,
+    private readonly qualifyingStagesService: QualifyingStagesService,
+    private readonly knockoutStagesService: KnockoutStagesService,
   ) {}
 
   async create(createMatchDto: CreateMatchDto): Promise<MatchResponse> {
     try {
-      const { groupId, ...matchData } = createMatchDto;
+      const { groupId, qualifyingStageId, knockoutStageId, ...matchData } =
+        createMatchDto;
 
       this.validateMatchDay(matchData);
+      this.validateStageSpecificFields(
+        matchData,
+        qualifyingStageId,
+        knockoutStageId,
+      );
+      await this.validateStageTournamentRelations(
+        matchData,
+        qualifyingStageId,
+        knockoutStageId,
+      );
 
       const [groupClassification, tournament, homeTeam, awayTeam] =
         await this.fetchRequiredEntities(matchData, groupId);
@@ -45,6 +60,12 @@ export class MatchesService {
         tournamentId: tournament._id,
         homeTeamId: homeTeam._id,
         awayTeamId: awayTeam._id,
+        qualifyingStageId: qualifyingStageId
+          ? new Types.ObjectId(qualifyingStageId)
+          : null,
+        knockoutStageId: knockoutStageId
+          ? new Types.ObjectId(knockoutStageId)
+          : null,
       });
 
       return this.findOne(match._id.toString());
@@ -76,15 +97,32 @@ export class MatchesService {
           select: '-_id name logo',
         },
       })
+      .populate({
+        path: 'qualifyingStageId',
+        select: 'qualifyingStage',
+      })
+      .populate({
+        path: 'knockoutStageId',
+        select: 'knockoutStage',
+      })
       .lean();
 
     return matches.map((match) => {
-      const { tournamentId, homeTeamId, awayTeamId, ...rest } = match;
+      const {
+        tournamentId,
+        homeTeamId,
+        awayTeamId,
+        qualifyingStageId,
+        knockoutStageId,
+        ...rest
+      } = match;
       const transformedMatch = {
         ...rest,
         tournament: tournamentId,
         homeTeam: homeTeamId,
         awayTeam: awayTeamId,
+        qualifyingStage: qualifyingStageId,
+        knockoutStage: knockoutStageId,
       };
       return transformedMatch as unknown as MatchResponse;
     });
@@ -142,7 +180,10 @@ export class MatchesService {
       { $unwind: { path: '$group', preserveNullAndEmptyArrays: true } },
       {
         $addFields: {
-          group: '$group.name',
+          group: {
+            name: '$group.name',
+            _id: '$group._id',
+          },
         },
       },
       {
@@ -163,6 +204,22 @@ export class MatchesService {
         },
       },
       { $unwind: '$awayTeamInfo' },
+      {
+        $lookup: {
+          from: 'qualifyingstages',
+          localField: 'qualifyingStageId',
+          foreignField: '_id',
+          as: 'qualifyingStage',
+        },
+      },
+      {
+        $lookup: {
+          from: 'knockoutstages',
+          localField: 'knockoutStageId',
+          foreignField: '_id',
+          as: 'knockoutStage',
+        },
+      },
       {
         $project: {
           _id: 1,
@@ -191,11 +248,44 @@ export class MatchesService {
           homeGoals: 1,
           awayGoals: 1,
           stage: 1,
-          group: 1,
+          group: {
+            $cond: {
+              if: { $eq: ['$stage', 'groupStage'] },
+              then: {
+                name: '$group.name',
+                _id: '$group._id',
+              },
+              else: null,
+            },
+          },
           matchDay: 1,
           matchType: 1,
           stadium: 1,
           status: 1,
+          qualifyingStage: {
+            $cond: {
+              if: { $gt: [{ $size: '$qualifyingStage' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$qualifyingStage._id', 0] },
+                qualifyingStage: {
+                  $arrayElemAt: ['$qualifyingStage.qualifyingStage', 0],
+                },
+              },
+              else: null,
+            },
+          },
+          knockoutStage: {
+            $cond: {
+              if: { $gt: [{ $size: '$knockoutStage' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$knockoutStage._id', 0] },
+                knockoutStage: {
+                  $arrayElemAt: ['$knockoutStage.knockoutStage', 0],
+                },
+              },
+              else: null,
+            },
+          },
         },
       },
     ]);
@@ -211,17 +301,107 @@ export class MatchesService {
     id: string,
     updateMatchDto: UpdateMatchDto,
   ): Promise<MatchResponse> {
-    await this.findOne(id);
+    const { qualifyingStageId, knockoutStageId, ...rest } = updateMatchDto;
+
+    const match = await this.findOne(id);
+
+    // Check if match can be updated
+    if (match.status === 'finished') {
+      throw new BadRequestException(
+        'Cannot update a finished match. Create a new one instead.',
+      );
+    }
 
     const updatedMatch = await this.matchModel
-      .findByIdAndUpdate(id, updateMatchDto, { new: true })
+      .findByIdAndUpdate(
+        id,
+        {
+          ...rest,
+          qualifyingStageId: qualifyingStageId
+            ? new Types.ObjectId(qualifyingStageId)
+            : null,
+          knockoutStageId: knockoutStageId
+            ? new Types.ObjectId(knockoutStageId)
+            : null,
+        },
+        { new: true },
+      )
       .lean();
 
     if (!updatedMatch) {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
+    // Update group classification if it's a group stage match changing from pending to finished
+    if (
+      match.stage === 'groupStage' &&
+      match.status === 'pending' &&
+      updateMatchDto.status === 'finished' &&
+      updateMatchDto.homeGoals !== null &&
+      updateMatchDto.awayGoals !== null
+    ) {
+      const homeTeamWon = updateMatchDto.homeGoals > updateMatchDto.awayGoals;
+      const awayTeamWon = updateMatchDto.awayGoals > updateMatchDto.homeGoals;
+      const isDraw = updateMatchDto.homeGoals === updateMatchDto.awayGoals;
+
+      const classifications = [
+        {
+          tournamentTeamId: match.homeTeam._id.toString(),
+          matchesPlayed: 1,
+          wins: homeTeamWon ? 1 : 0,
+          draws: isDraw ? 1 : 0,
+          losses: awayTeamWon ? 1 : 0,
+          goalsFor: updateMatchDto.homeGoals,
+          goalsAgainst: updateMatchDto.awayGoals,
+          points: homeTeamWon ? 3 : isDraw ? 1 : 0,
+        },
+        {
+          tournamentTeamId: match.awayTeam._id.toString(),
+          matchesPlayed: 1,
+          wins: awayTeamWon ? 1 : 0,
+          draws: isDraw ? 1 : 0,
+          losses: homeTeamWon ? 1 : 0,
+          goalsFor: updateMatchDto.awayGoals,
+          goalsAgainst: updateMatchDto.homeGoals,
+          points: awayTeamWon ? 3 : isDraw ? 1 : 0,
+        },
+      ];
+
+      await this.groupClassificationService.update({
+        groupId: match.group,
+        classifications,
+      });
+    }
+
     return this.findOne(id);
+  }
+
+  private async validateStageTournamentRelations(
+    matchData: Partial<CreateMatchDto>,
+    qualifyingStageId?: string | null,
+    knockoutStageId?: string | null,
+  ): Promise<void> {
+    if (qualifyingStageId) {
+      const qualifyingStage =
+        await this.qualifyingStagesService.findOne(qualifyingStageId);
+      if (
+        qualifyingStage.tournament._id.toString() !== matchData.tournamentId
+      ) {
+        throw new BadRequestException(
+          'qualifyingStageId must belong to the same tournament',
+        );
+      }
+    }
+
+    if (knockoutStageId) {
+      const knockoutStage =
+        await this.knockoutStagesService.findOne(knockoutStageId);
+      if (knockoutStage.tournament._id.toString() !== matchData.tournamentId) {
+        throw new BadRequestException(
+          'knockoutStageId must belong to the same tournament',
+        );
+      }
+    }
   }
 
   private validateMatchDay(matchData: Partial<CreateMatchDto>): void {
@@ -230,6 +410,152 @@ export class MatchesService {
         'Match day is required for group stage matches (1-6)',
       );
     }
+  }
+
+  private readonly STAGE_VALIDATION_MESSAGES = {
+    QUALIFYING_STAGE: {
+      MATCH_DAY: 'matchDay must be null for qualifying stage matches',
+      MATCH_TYPE: 'matchType is required for qualifying stage matches',
+      QUALIFYING_STAGE_ID:
+        'qualifyingStageId is required for qualifying stage matches',
+      KNOCKOUT_STAGE_ID:
+        'knockoutStageId must be null for qualifying stage matches',
+    },
+    GROUP_STAGE: {
+      MATCH_DAY: 'matchDay is required for group stage matches',
+      MATCH_TYPE: 'matchType must be null for group stage matches',
+      QUALIFYING_STAGE_ID:
+        'qualifyingStageId must be null for group stage matches',
+      KNOCKOUT_STAGE_ID: 'knockoutStageId must be null for group stage matches',
+    },
+    KNOCKOUT_STAGE: {
+      MATCH_DAY: 'matchDay must be null for knockout stage matches',
+      MATCH_TYPE: 'matchType is required for knockout stage matches',
+      QUALIFYING_STAGE_ID:
+        'qualifyingStageId must be null for knockout stage matches',
+      KNOCKOUT_STAGE_ID:
+        'knockoutStageId is required for knockout stage matches',
+    },
+    INVALID_STAGE: 'Invalid stage value',
+  } as const;
+
+  private validateQualifyingStage(
+    matchData: Partial<CreateMatchDto>,
+    qualifyingStageId?: string | null,
+    knockoutStageId?: string | null,
+  ): void {
+    if (matchData.matchDay !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.QUALIFYING_STAGE.MATCH_DAY,
+      );
+    }
+    if (!matchData.matchType) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.QUALIFYING_STAGE.MATCH_TYPE,
+      );
+    }
+    if (!qualifyingStageId) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.QUALIFYING_STAGE.QUALIFYING_STAGE_ID,
+      );
+    }
+    if (knockoutStageId !== undefined && knockoutStageId !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.QUALIFYING_STAGE.KNOCKOUT_STAGE_ID,
+      );
+    }
+  }
+
+  private validateGroupStage(
+    matchData: Partial<CreateMatchDto>,
+    qualifyingStageId?: string | null,
+    knockoutStageId?: string | null,
+  ): void {
+    if (!matchData.matchDay) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.GROUP_STAGE.MATCH_DAY,
+      );
+    }
+    if (matchData.matchType !== undefined && matchData.matchType !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.GROUP_STAGE.MATCH_TYPE,
+      );
+    }
+    if (qualifyingStageId !== undefined && qualifyingStageId !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.GROUP_STAGE.QUALIFYING_STAGE_ID,
+      );
+    }
+    if (knockoutStageId !== undefined && knockoutStageId !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.GROUP_STAGE.KNOCKOUT_STAGE_ID,
+      );
+    }
+  }
+
+  private validateKnockoutStage(
+    matchData: Partial<CreateMatchDto>,
+    qualifyingStageId?: string | null,
+    knockoutStageId?: string | null,
+  ): void {
+    if (matchData.matchDay !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.KNOCKOUT_STAGE.MATCH_DAY,
+      );
+    }
+    if (!matchData.matchType) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.KNOCKOUT_STAGE.MATCH_TYPE,
+      );
+    }
+    if (qualifyingStageId !== undefined && qualifyingStageId !== null) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.KNOCKOUT_STAGE.QUALIFYING_STAGE_ID,
+      );
+    }
+    if (!knockoutStageId) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.KNOCKOUT_STAGE.KNOCKOUT_STAGE_ID,
+      );
+    }
+  }
+
+  private validateStageSpecificFields(
+    matchData: Partial<CreateMatchDto>,
+    qualifyingStageId?: string | null,
+    knockoutStageId?: string | null,
+  ): void {
+    if (!matchData.stage) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.INVALID_STAGE,
+      );
+    }
+
+    const stageValidators: Record<string, () => void> = {
+      qualifyingStage: () =>
+        this.validateQualifyingStage(
+          matchData,
+          qualifyingStageId,
+          knockoutStageId,
+        ),
+      groupStage: () =>
+        this.validateGroupStage(matchData, qualifyingStageId, knockoutStageId),
+      knockoutStage: () =>
+        this.validateKnockoutStage(
+          matchData,
+          qualifyingStageId,
+          knockoutStageId,
+        ),
+    };
+
+    const validator = stageValidators[matchData.stage];
+    if (!validator) {
+      throw new BadRequestException(
+        this.STAGE_VALIDATION_MESSAGES.INVALID_STAGE,
+      );
+    }
+
+    validator();
   }
 
   private async fetchRequiredEntities(
