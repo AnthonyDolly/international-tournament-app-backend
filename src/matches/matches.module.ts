@@ -6,6 +6,8 @@ import { Match, MatchSchema } from './entities/match.entity';
 import { TournamentsModule } from 'src/tournaments/tournaments.module';
 import { TournamentTeamsModule } from 'src/tournament-teams/tournament-teams.module';
 import { GroupClassificationModule } from 'src/group-classification/group-classification.module';
+import { KnockoutStagesModule } from 'src/knockout-stages/knockout-stages.module';
+import { QualifyingStagesModule } from 'src/qualifying-stages/qualifying-stages.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { GroupClassificationModule } from 'src/group-classification/group-classi
     TournamentsModule,
     TournamentTeamsModule,
     GroupClassificationModule,
+    QualifyingStagesModule,
+    KnockoutStagesModule,
   ],
   controllers: [MatchesController],
   providers: [MatchesService],
