@@ -1,7 +1,6 @@
 import {
   IsDate,
   IsIn,
-  IsInt,
   IsMongoId,
   IsNotEmpty,
   IsOptional,
@@ -44,4 +43,12 @@ export class CreateMatchDto {
   @IsOptional()
   @IsIn(['firstLeg', 'secondLeg', 'singleMatch'])
   matchType: string;
+
+  @IsOptional()
+  @IsMongoId()
+  qualifyingStageId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  knockoutStageId: string;
 }
