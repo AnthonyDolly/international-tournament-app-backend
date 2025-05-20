@@ -10,6 +10,7 @@ import { GroupClassification } from './entities/group-classification.entity';
 import { Model, Types } from 'mongoose';
 import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
 import { GroupsService } from 'src/groups/groups.service';
+import { UpdateGroupClassificationsDto } from './dto/update-group-classifications.dto';
 
 @Injectable()
 export class GroupClassificationService {
@@ -158,6 +159,97 @@ export class GroupClassificationService {
       return await this.groupClassificationModel.insertMany(
         groupClassifications,
       );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.handleExceptions(error);
+    }
+  }
+
+  async update(updateGroupClassificationDto: UpdateGroupClassificationsDto) {
+    try {
+      const { groupId, classifications } = updateGroupClassificationDto;
+
+      // Validate tournament teams exist
+      const tournamentTeams = await this.tournamentTeamService.findByIds(
+        classifications.map(
+          (classification) => classification.tournamentTeamId,
+        ),
+      );
+
+      if (tournamentTeams.length !== classifications.length) {
+        throw new BadRequestException(
+          'One or more tournament teams do not exist in the database',
+        );
+      }
+
+      // Validate group exists
+      const group = await this.groupService.findOne(groupId);
+
+      // Validate existing classifications
+      const existingGroupClassifications =
+        await this.groupClassificationModel.find({
+          tournamentTeamId: {
+            $in: tournamentTeams.map((tournamentTeam) => tournamentTeam._id),
+          },
+          groupId: group._id,
+        });
+
+      if (existingGroupClassifications.length !== tournamentTeams.length) {
+        throw new BadRequestException(
+          'One or more tournament teams are not assigned to this group',
+        );
+      }
+
+      // Update each classification
+      const updatePromises = classifications.map(async (classification) => {
+        const { tournamentTeamId, ...updateData } = classification;
+
+        // First update with increments
+        const updatedClassification =
+          await this.groupClassificationModel.findOneAndUpdate(
+            {
+              tournamentTeamId: new Types.ObjectId(tournamentTeamId),
+              groupId: group._id,
+            },
+            {
+              $inc: {
+                matchesPlayed: updateData.matchesPlayed,
+                wins: updateData.wins,
+                draws: updateData.draws,
+                losses: updateData.losses,
+                goalsFor: updateData.goalsFor,
+                goalsAgainst: updateData.goalsAgainst,
+                points: updateData.points,
+              },
+            },
+            { new: true },
+          );
+
+        if (!updatedClassification) {
+          throw new NotFoundException(
+            `Group classification not found for tournament team ${tournamentTeamId}`,
+          );
+        }
+
+        // Then update goal difference
+        return this.groupClassificationModel.findByIdAndUpdate(
+          updatedClassification._id,
+          {
+            $set: {
+              goalDifference:
+                updatedClassification.goalsFor -
+                updatedClassification.goalsAgainst,
+            },
+          },
+          { new: true },
+        );
+      });
+
+      const updatedClassifications = await Promise.all(updatePromises);
+
+      return updatedClassifications;
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
