@@ -13,12 +13,12 @@ export class CreateMatchDto {
   tournamentId: string;
 
   @IsNotEmpty()
-  @IsMongoId()
-  groupId: string;
-
-  @IsNotEmpty()
   @IsIn(['qualifyingStage', 'groupStage', 'knockoutStage'])
   stage: string;
+
+  @IsOptional()
+  @IsMongoId()
+  groupId: string;
 
   @IsOptional()
   @IsIn([1, 2, 3, 4, 5, 6])
