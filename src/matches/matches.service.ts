@@ -53,7 +53,22 @@ export class MatchesService {
         awayTeam.tournamentId._id,
       );
       this.validateTeamDifference(homeTeam.teamId._id, awayTeam.teamId._id);
-      this.validateTeamsInGroup(groupClassification, matchData);
+
+      if (matchData.stage === 'qualifyingStage') {
+        await this.validateTeamsInQualifyingStage(
+          qualifyingStageId,
+          homeTeam._id.toString(),
+          awayTeam._id.toString(),
+        );
+      } else if (matchData.stage === 'groupStage') {
+        this.validateTeamsInGroup(groupClassification, matchData);
+      } else if (matchData.stage === 'knockoutStage') {
+        this.validateTeamsInKnockoutStage(
+          knockoutStageId,
+          homeTeam._id.toString(),
+          awayTeam._id.toString(),
+        );
+      }
 
       const match = await this.matchModel.create({
         ...matchData,
@@ -487,7 +502,7 @@ export class MatchesService {
     qualifyingStageId?: string | null,
     knockoutStageId?: string | null,
   ): void {
-    if (matchData.matchDay !== null) {
+    if (matchData.matchDay !== null && matchData.matchDay !== undefined) {
       throw new BadRequestException(
         this.STAGE_VALIDATION_MESSAGES.QUALIFYING_STAGE.MATCH_DAY,
       );
@@ -603,7 +618,7 @@ export class MatchesService {
 
   private async fetchRequiredEntities(
     matchData: Partial<CreateMatchDto>,
-    groupId: string,
+    groupId?: string,
   ) {
     if (
       !matchData.tournamentId ||
@@ -615,15 +630,32 @@ export class MatchesService {
       );
     }
 
-    return Promise.all([
-      this.groupClassificationService.findByTournamentIdAndGroupId(
-        matchData.tournamentId,
-        groupId,
-      ),
+    const [tournament, homeTeam, awayTeam] = await Promise.all([
       this.tournamentService.findOne(matchData.tournamentId),
       this.tournamentTeamService.findOne(matchData.homeTeamId),
       this.tournamentTeamService.findOne(matchData.awayTeamId),
     ]);
+
+    if (!tournament || !homeTeam || !awayTeam) {
+      throw new BadRequestException('Tournament or teams not found');
+    }
+
+    let groupClassification: { groups: { group: any; teams: any }[] } | null =
+      null;
+    if (matchData.stage === 'groupStage') {
+      if (!groupId) {
+        throw new BadRequestException(
+          'groupId is required for group stage matches',
+        );
+      }
+      groupClassification =
+        await this.groupClassificationService.findByTournamentIdAndGroupId(
+          matchData.tournamentId,
+          groupId,
+        );
+    }
+
+    return [groupClassification, tournament, homeTeam, awayTeam] as const;
   }
 
   private validateTeamTournamentRelation(
@@ -656,6 +688,10 @@ export class MatchesService {
     groupClassification: any,
     matchData: Partial<CreateMatchDto>,
   ): void {
+    if (!groupClassification) {
+      return; // Skip validation if not a group stage match
+    }
+
     if (!matchData.homeTeamId || !matchData.awayTeamId) {
       throw new BadRequestException(
         'Missing required fields: homeTeamId or awayTeamId',
@@ -669,6 +705,72 @@ export class MatchesService {
     if (!inGroup(matchData.homeTeamId) || !inGroup(matchData.awayTeamId)) {
       throw new BadRequestException(
         'One or both teams are not in the specified group',
+      );
+    }
+  }
+
+  private async validateTeamsInQualifyingStage(
+    qualifyingStageId: string,
+    homeTeamId: string,
+    awayTeamId: string,
+  ): Promise<void> {
+    if (!qualifyingStageId) {
+      throw new BadRequestException(
+        'qualifyingStageId is required for qualifying stage matches',
+      );
+    }
+
+    const qualifyingStage =
+      await this.qualifyingStagesService.findOne(qualifyingStageId);
+
+    const stageTeams = [
+      qualifyingStage.firstTeam._id.toString(),
+      qualifyingStage.secondTeam._id.toString(),
+    ];
+
+    const matchTeams = [homeTeamId, awayTeamId];
+
+    // Check if both teams are in the qualifying stage (order doesn't matter)
+    const teamsMatch = matchTeams.every((teamId) =>
+      stageTeams.includes(teamId),
+    );
+
+    if (!teamsMatch) {
+      throw new BadRequestException(
+        'Home team and away team must match the teams in the qualifying stage',
+      );
+    }
+  }
+
+  private async validateTeamsInKnockoutStage(
+    knockoutStageId: string,
+    homeTeamId: string,
+    awayTeamId: string,
+  ): Promise<void> {
+    if (!knockoutStageId) {
+      throw new BadRequestException(
+        'knockoutStageId is required for knockout stage matches',
+      );
+    }
+
+    const knockoutStage =
+      await this.knockoutStagesService.findOne(knockoutStageId);
+
+    const stageTeams = [
+      knockoutStage.firstTeam._id.toString(),
+      knockoutStage.secondTeam._id.toString(),
+    ];
+
+    const matchTeams = [homeTeamId, awayTeamId];
+
+    // Check if both teams are in the knockout stage (order doesn't matter)
+    const teamsMatch = matchTeams.every((teamId) =>
+      stageTeams.includes(teamId),
+    );
+
+    if (!teamsMatch) {
+      throw new BadRequestException(
+        'Home team and away team must match the teams in the knockout stage',
       );
     }
   }
