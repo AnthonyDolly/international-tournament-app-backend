@@ -35,6 +35,10 @@ export class QualifyingStagesService {
         secondTeam.tournamentId._id,
       );
       this.validateTeamDifference(firstTeam.teamId._id, secondTeam.teamId._id);
+      this.validateTeamsFromQualifiers(
+        firstTeam.teamId.isFromQualifiers,
+        secondTeam.teamId.isFromQualifiers,
+      );
 
       const qualifyingStage = await this.qualifyingStageModel.create({
         ...createQualifyingStageDto,
@@ -374,6 +378,17 @@ export class QualifyingStagesService {
     if (firstTeamId.toString() === secondTeamId.toString()) {
       throw new BadRequestException(
         'Cannot create a qualifying stage with the same team',
+      );
+    }
+  }
+
+  private validateTeamsFromQualifiers(
+    firstTeamFromQualifiers: boolean,
+    secondTeamFromQualifiers: boolean,
+  ): void {
+    if (!firstTeamFromQualifiers || !secondTeamFromQualifiers) {
+      throw new BadRequestException(
+        'Both teams must be from qualifiers to participate in qualifying stages',
       );
     }
   }
