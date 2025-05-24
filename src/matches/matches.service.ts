@@ -1,3 +1,5 @@
+import { UpdateQualifyingStageDto } from 'src/qualifying-stages/dto/update-qualifying-stage.dto';
+import { UpdateKnockoutStageDto } from 'src/knockout-stages/dto/update-knockout-stage.dto';
 import {
   BadRequestException,
   Injectable,
@@ -43,6 +45,108 @@ export class MatchesService {
         qualifyingStageId,
         knockoutStageId,
       );
+
+      // Check for existing qualifying stage matches with same leg
+      if (
+        matchData.stage === 'qualifyingStage' &&
+        qualifyingStageId &&
+        matchData.matchType
+      ) {
+        const existingMatch = await this.matchModel
+          .findOne({
+            qualifyingStageId: new Types.ObjectId(qualifyingStageId),
+            matchType: matchData.matchType,
+          })
+          .lean();
+
+        if (existingMatch) {
+          throw new BadRequestException(
+            `A match with matchType ${matchData.matchType} already exists for this qualifying stage`,
+          );
+        }
+
+        // If trying to create a second leg match, verify first leg exists
+        if (matchData.matchType === 'secondLeg') {
+          const firstLegMatch = await this.matchModel
+            .findOne({
+              qualifyingStageId: new Types.ObjectId(qualifyingStageId),
+              matchType: 'firstLeg',
+            })
+            .lean();
+
+          if (!firstLegMatch) {
+            throw new BadRequestException(
+              'Cannot create second leg match before first leg match exists',
+            );
+          }
+
+          // Validate that home and away teams are swapped from first leg
+          const firstLegHomeTeam = firstLegMatch.homeTeamId.toString();
+          const firstLegAwayTeam = firstLegMatch.awayTeamId.toString();
+          const secondLegHomeTeam = matchData.homeTeamId;
+          const secondLegAwayTeam = matchData.awayTeamId;
+
+          if (
+            firstLegHomeTeam !== secondLegAwayTeam ||
+            firstLegAwayTeam !== secondLegHomeTeam
+          ) {
+            throw new BadRequestException(
+              'In second leg matches, home and away teams must be swapped from the first leg',
+            );
+          }
+        }
+      }
+
+      // Check for existing knockout stage matches with same leg
+      if (
+        matchData.stage === 'knockoutStage' &&
+        knockoutStageId &&
+        matchData.matchType
+      ) {
+        const existingMatch = await this.matchModel
+          .findOne({
+            knockoutStageId: new Types.ObjectId(knockoutStageId),
+            matchType: matchData.matchType,
+          })
+          .lean();
+
+        if (existingMatch) {
+          throw new BadRequestException(
+            `A match with matchType ${matchData.matchType} already exists for this knockout stage`,
+          );
+        }
+
+        // If trying to create a second leg match, verify first leg exists
+        if (matchData.matchType === 'secondLeg') {
+          const firstLegMatch = await this.matchModel
+            .findOne({
+              knockoutStageId: new Types.ObjectId(knockoutStageId),
+              matchType: 'firstLeg',
+            })
+            .lean();
+
+          if (!firstLegMatch) {
+            throw new BadRequestException(
+              'Cannot create second leg match before first leg match exists',
+            );
+          }
+
+          // Validate that home and away teams are swapped from first leg
+          const firstLegHomeTeam = firstLegMatch.homeTeamId.toString();
+          const firstLegAwayTeam = firstLegMatch.awayTeamId.toString();
+          const secondLegHomeTeam = matchData.homeTeamId;
+          const secondLegAwayTeam = matchData.awayTeamId;
+
+          if (
+            firstLegHomeTeam !== secondLegAwayTeam ||
+            firstLegAwayTeam !== secondLegHomeTeam
+          ) {
+            throw new BadRequestException(
+              'In second leg matches, home and away teams must be swapped from the first leg',
+            );
+          }
+        }
+      }
 
       const [groupClassification, tournament, homeTeam, awayTeam] =
         await this.fetchRequiredEntities(matchData, groupId);
@@ -359,8 +463,6 @@ export class MatchesService {
     id: string,
     updateMatchDto: UpdateMatchDto,
   ): Promise<MatchResponse> {
-    const { qualifyingStageId, knockoutStageId, ...rest } = updateMatchDto;
-
     const match = await this.findOne(id);
 
     // Check if match can be updated
@@ -370,17 +472,239 @@ export class MatchesService {
       );
     }
 
+    // Perform qualifying stage validation BEFORE updating the match
+    let qualifyingStageUpdateData: UpdateQualifyingStageDto | null = null;
+    let qualifyingStageId: string | null = null;
+
+    // Perform knockout stage validation BEFORE updating the match
+    let knockoutStageUpdateData: UpdateKnockoutStageDto | null = null;
+    let knockoutStageId: string | null = null;
+
+    // Get the raw match data to access qualifyingStageId
+    const rawMatch = await this.matchModel.findById(id).lean();
+
+    if (
+      match.stage === 'qualifyingStage' &&
+      match.status === 'pending' &&
+      updateMatchDto.status === 'finished' &&
+      updateMatchDto.homeGoals !== null &&
+      updateMatchDto.awayGoals !== null &&
+      rawMatch?.qualifyingStageId
+    ) {
+      qualifyingStageId = rawMatch.qualifyingStageId.toString();
+      const qualifyingStage =
+        await this.qualifyingStagesService.findOne(qualifyingStageId);
+
+      // Check if the leg has already been played
+      if (
+        (match.matchType === 'firstLeg' && qualifyingStage.firstLegPlayed) ||
+        (match.matchType === 'secondLeg' && qualifyingStage.secondLegPlayed)
+      ) {
+        throw new BadRequestException(
+          `This ${match.matchType} has already been played for this qualifying stage`,
+        );
+      }
+
+      // Determine which team is first and which is second
+      const isHomeTeamFirst =
+        match.homeTeam._id.toString() ===
+        qualifyingStage.firstTeam._id.toString();
+
+      // Update aggregate goals based on which team is first/second
+      const firstTeamGoals = isHomeTeamFirst
+        ? updateMatchDto.homeGoals
+        : updateMatchDto.awayGoals;
+      const secondTeamGoals = isHomeTeamFirst
+        ? updateMatchDto.awayGoals
+        : updateMatchDto.homeGoals;
+
+      // Get existing aggregate goals
+      const firstTeamAggregateGoals =
+        (qualifyingStage.firstTeamAggregateGoals || 0) + firstTeamGoals;
+      const secondTeamAggregateGoals =
+        (qualifyingStage.secondTeamAggregateGoals || 0) + secondTeamGoals;
+
+      // Prepare update data with required fields
+      qualifyingStageUpdateData = {
+        firstTeamAggregateGoals,
+        secondTeamAggregateGoals,
+        winnerTeamId: null as unknown as string, // This will be updated if it's a second leg match
+        firstLegPlayed:
+          match.matchType === 'firstLeg'
+            ? true
+            : qualifyingStage.firstLegPlayed,
+        secondLegPlayed:
+          match.matchType === 'secondLeg'
+            ? true
+            : qualifyingStage.secondLegPlayed,
+      };
+
+      // Determine winner if it's the second leg
+      if (match.matchType === 'secondLeg') {
+        if (firstTeamAggregateGoals > secondTeamAggregateGoals) {
+          qualifyingStageUpdateData.winnerTeamId =
+            qualifyingStage.firstTeam._id.toString();
+        } else if (secondTeamAggregateGoals > firstTeamAggregateGoals) {
+          qualifyingStageUpdateData.winnerTeamId =
+            qualifyingStage.secondTeam._id.toString();
+        } else {
+          // Handle aggregate draw with penalties
+          if (
+            updateMatchDto.firstTeamPenaltyGoals !== undefined &&
+            updateMatchDto.secondTeamPenaltyGoals !== undefined
+          ) {
+            // Determine which team gets which penalty goals based on home/away positions
+            const isHomeTeamFirst =
+              match.homeTeam._id.toString() ===
+              qualifyingStage.firstTeam._id.toString();
+
+            const firstTeamPenaltyGoals = isHomeTeamFirst
+              ? updateMatchDto.firstTeamPenaltyGoals
+              : updateMatchDto.secondTeamPenaltyGoals;
+            const secondTeamPenaltyGoals = isHomeTeamFirst
+              ? updateMatchDto.secondTeamPenaltyGoals
+              : updateMatchDto.firstTeamPenaltyGoals;
+
+            // Add penalty data to update
+            qualifyingStageUpdateData.penaltiesPlayed = true;
+            qualifyingStageUpdateData.firstTeamPenaltyGoals =
+              firstTeamPenaltyGoals;
+            qualifyingStageUpdateData.secondTeamPenaltyGoals =
+              secondTeamPenaltyGoals;
+
+            // Determine winner based on penalty goals
+            if (firstTeamPenaltyGoals > secondTeamPenaltyGoals) {
+              qualifyingStageUpdateData.winnerTeamId =
+                qualifyingStage.firstTeam._id.toString();
+            } else if (secondTeamPenaltyGoals > firstTeamPenaltyGoals) {
+              qualifyingStageUpdateData.winnerTeamId =
+                qualifyingStage.secondTeam._id.toString();
+            } else {
+              throw new BadRequestException(
+                'Penalty shootout cannot end in a draw. One team must win.',
+              );
+            }
+          } else {
+            throw new BadRequestException(
+              'Aggregate draw detected. Penalty goals (firstTeamPenaltyGoals and secondTeamPenaltyGoals) are required to determine the winner.',
+            );
+          }
+        }
+      }
+    } else if (
+      match.stage === 'knockoutStage' &&
+      match.status === 'pending' &&
+      updateMatchDto.status === 'finished' &&
+      updateMatchDto.homeGoals !== null &&
+      updateMatchDto.awayGoals !== null &&
+      rawMatch?.knockoutStageId
+    ) {
+      knockoutStageId = rawMatch.knockoutStageId.toString();
+      const knockoutStage =
+        await this.knockoutStagesService.findOne(knockoutStageId);
+
+      // Check if the leg has already been played
+      if (
+        (match.matchType === 'firstLeg' && knockoutStage.firstLegPlayed) ||
+        (match.matchType === 'secondLeg' && knockoutStage.secondLegPlayed)
+      ) {
+        throw new BadRequestException(
+          `This ${match.matchType} has already been played for this knockout stage`,
+        );
+      }
+
+      // Determine which team is first and which is second
+      const isHomeTeamFirst =
+        match.homeTeam._id.toString() ===
+        knockoutStage.firstTeam._id.toString();
+
+      // Update aggregate goals based on which team is first/second
+      const firstTeamGoals = isHomeTeamFirst
+        ? updateMatchDto.homeGoals
+        : updateMatchDto.awayGoals;
+      const secondTeamGoals = isHomeTeamFirst
+        ? updateMatchDto.awayGoals
+        : updateMatchDto.homeGoals;
+
+      // Get existing aggregate goals
+      const firstTeamAggregateGoals =
+        (knockoutStage.firstTeamAggregateGoals || 0) + firstTeamGoals;
+      const secondTeamAggregateGoals =
+        (knockoutStage.secondTeamAggregateGoals || 0) + secondTeamGoals;
+
+      // Prepare update data with required fields
+      knockoutStageUpdateData = {
+        firstTeamAggregateGoals,
+        secondTeamAggregateGoals,
+        winnerTeamId: null as unknown as string, // This will be updated if it's a second leg match
+        firstLegPlayed:
+          match.matchType === 'firstLeg' ? true : knockoutStage.firstLegPlayed,
+        secondLegPlayed:
+          match.matchType === 'secondLeg'
+            ? true
+            : knockoutStage.secondLegPlayed,
+      };
+
+      // Determine winner if it's the second leg
+      if (match.matchType === 'secondLeg') {
+        if (firstTeamAggregateGoals > secondTeamAggregateGoals) {
+          knockoutStageUpdateData.winnerTeamId =
+            knockoutStage.firstTeam._id.toString();
+        } else if (secondTeamAggregateGoals > firstTeamAggregateGoals) {
+          knockoutStageUpdateData.winnerTeamId =
+            knockoutStage.secondTeam._id.toString();
+        } else {
+          // Handle aggregate draw with penalties
+          if (
+            updateMatchDto.firstTeamPenaltyGoals !== undefined &&
+            updateMatchDto.secondTeamPenaltyGoals !== undefined
+          ) {
+            // Determine which team gets which penalty goals based on home/away positions
+            const isHomeTeamFirst =
+              match.homeTeam._id.toString() ===
+              knockoutStage.firstTeam._id.toString();
+
+            const firstTeamPenaltyGoals = isHomeTeamFirst
+              ? updateMatchDto.firstTeamPenaltyGoals
+              : updateMatchDto.secondTeamPenaltyGoals;
+            const secondTeamPenaltyGoals = isHomeTeamFirst
+              ? updateMatchDto.secondTeamPenaltyGoals
+              : updateMatchDto.firstTeamPenaltyGoals;
+
+            // Add penalty data to update
+            knockoutStageUpdateData.penaltiesPlayed = true;
+            knockoutStageUpdateData.firstTeamPenaltyGoals =
+              firstTeamPenaltyGoals;
+            knockoutStageUpdateData.secondTeamPenaltyGoals =
+              secondTeamPenaltyGoals;
+
+            // Determine winner based on penalty goals
+            if (firstTeamPenaltyGoals > secondTeamPenaltyGoals) {
+              knockoutStageUpdateData.winnerTeamId =
+                knockoutStage.firstTeam._id.toString();
+            } else if (secondTeamPenaltyGoals > firstTeamPenaltyGoals) {
+              knockoutStageUpdateData.winnerTeamId =
+                knockoutStage.secondTeam._id.toString();
+            } else {
+              throw new BadRequestException(
+                'Penalty shootout cannot end in a draw. One team must win.',
+              );
+            }
+          } else {
+            throw new BadRequestException(
+              'Aggregate draw detected. Penalty goals (firstTeamPenaltyGoals and secondTeamPenaltyGoals) are required to determine the winner.',
+            );
+          }
+        }
+      }
+    }
+
+    // Now update the match in the database (only if validation passed)
     const updatedMatch = await this.matchModel
       .findByIdAndUpdate(
         id,
         {
-          ...rest,
-          qualifyingStageId: qualifyingStageId
-            ? new Types.ObjectId(qualifyingStageId)
-            : null,
-          knockoutStageId: knockoutStageId
-            ? new Types.ObjectId(knockoutStageId)
-            : null,
+          ...updateMatchDto,
         },
         { new: true },
       )
@@ -390,11 +714,27 @@ export class MatchesService {
       throw new NotFoundException(`Match with ID ${id} not found`);
     }
 
+    // Update qualifying stage if validation data was prepared
+    if (qualifyingStageUpdateData && qualifyingStageId) {
+      await this.qualifyingStagesService.update(
+        qualifyingStageId,
+        qualifyingStageUpdateData,
+      );
+    }
+
+    // Update knockout stage if validation data was prepared
+    if (knockoutStageUpdateData && knockoutStageId) {
+      await this.knockoutStagesService.update(
+        knockoutStageId,
+        knockoutStageUpdateData,
+      );
+    }
+
     // Update group classification if it's a group stage match changing from pending to finished
     if (
       match.stage === 'groupStage' &&
       match.status === 'pending' &&
-      updateMatchDto.status === 'finished' &&
+      updatedMatch.status === 'finished' &&
       updateMatchDto.homeGoals !== null &&
       updateMatchDto.awayGoals !== null
     ) {
@@ -556,7 +896,7 @@ export class MatchesService {
     qualifyingStageId?: string | null,
     knockoutStageId?: string | null,
   ): void {
-    if (matchData.matchDay !== null) {
+    if (matchData.matchDay !== null && matchData.matchDay !== undefined) {
       throw new BadRequestException(
         this.STAGE_VALIDATION_MESSAGES.KNOCKOUT_STAGE.MATCH_DAY,
       );
