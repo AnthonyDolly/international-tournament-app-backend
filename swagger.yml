@@ -1,0 +1,1277 @@
+openapi: 3.0.0
+info:
+  title: Copa Libertadores API
+  description: RESTful API for managing Copa Libertadores tournament matches, teams, and stages
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+
+components:
+  schemas:
+    Tournament:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        year:
+          type: integer
+          minimum: 2025
+
+    Team:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        logo:
+          type: string
+          nullable: true
+        country:
+          type: string
+          enum: [argentina, brasil, chile, colombia, ecuador, paraguay, perú, uruguay, venezuela, bolivia]
+        bombo:
+          type: integer
+          enum: [1, 2, 3, 4]
+        isParticipating:
+          type: boolean
+          default: false
+        isCurrentChampion:
+          type: boolean
+          default: false
+        isFromQualifiers:
+          type: boolean
+          default: false
+
+    Group:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    Match:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        tournament:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            year:
+              type: integer
+        stage:
+          type: string
+          enum: [qualifyingStage, groupStage, knockoutStage]
+        matchDay:
+          type: integer
+          minimum: 1
+          maximum: 6
+          nullable: true
+        homeTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        awayTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        homeGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        awayGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        matchDate:
+          type: string
+          format: date-time
+        stadium:
+          type: string
+        matchType:
+          type: string
+          enum: [firstLeg, secondLeg, singleMatch]
+          nullable: true
+        status:
+          type: string
+          enum: [pending, finished, cancelled]
+          default: pending
+        qualifyingStage:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              format: uuid
+            qualifyingStage:
+              type: string
+        knockoutStage:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              format: uuid
+            knockoutStage:
+              type: string
+        group:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+
+    TournamentTeam:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        tournament:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            year:
+              type: integer
+        team:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            logo:
+              type: string
+              nullable: true
+            country:
+              type: string
+            bombo:
+              type: integer
+
+    QualifyingStage:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        tournament:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            year:
+              type: integer
+        qualifyingStage:
+          type: string
+          enum: [firstRound, secondRound, thirdRound]
+        firstTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        secondTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        firstTeamAggregateGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        secondTeamAggregateGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        firstLegPlayed:
+          type: boolean
+          default: false
+        secondLegPlayed:
+          type: boolean
+          default: false
+        penaltiesPlayed:
+          type: boolean
+          default: false
+        firstTeamPenaltyGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        secondTeamPenaltyGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        winnerTeam:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+
+    KnockoutStage:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        tournament:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            year:
+              type: integer
+        knockoutStage:
+          type: string
+          enum: [roundOf16, quarterFinal, semiFinal, final]
+        firstTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        secondTeam:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+        firstTeamAggregateGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        secondTeamAggregateGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        firstLegPlayed:
+          type: boolean
+          default: false
+        secondLegPlayed:
+          type: boolean
+          default: false
+        penaltiesPlayed:
+          type: boolean
+          default: false
+        firstTeamPenaltyGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        secondTeamPenaltyGoals:
+          type: integer
+          minimum: 0
+          nullable: true
+        winnerTeam:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+              format: uuid
+            team:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                logo:
+                  type: string
+                  nullable: true
+
+    GroupClassification:
+      type: object
+      properties:
+        _id:
+          type: string
+          format: uuid
+        group:
+          type: object
+          properties:
+            _id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        teams:
+          type: array
+          items:
+            type: object
+            properties:
+              tournamentTeamId:
+                type: string
+                format: uuid
+              team:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  logo:
+                    type: string
+                    nullable: true
+              matchesPlayed:
+                type: integer
+                minimum: 0
+              wins:
+                type: integer
+                minimum: 0
+              draws:
+                type: integer
+                minimum: 0
+              losses:
+                type: integer
+                minimum: 0
+              goalsFor:
+                type: integer
+                minimum: 0
+              goalsAgainst:
+                type: integer
+                minimum: 0
+              points:
+                type: integer
+                minimum: 0
+
+paths:
+  /tournaments:
+    post:
+      summary: Create a new tournament
+      tags: [Tournaments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - year
+              properties:
+                name:
+                  type: string
+                year:
+                  type: integer
+                  minimum: 2025
+      responses:
+        '201':
+          description: Tournament created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all tournaments
+      tags: [Tournaments]
+      responses:
+        '200':
+          description: List of tournaments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tournament'
+
+  /tournaments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get tournament by ID
+      tags: [Tournaments]
+      responses:
+        '200':
+          description: Tournament details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+        '404':
+          description: Tournament not found
+
+  /teams:
+    post:
+      summary: Create a new team
+      tags: [Teams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - country
+                - bombo
+              properties:
+                name:
+                  type: string
+                country:
+                  type: string
+                  enum: [argentina, brasil, chile, colombia, ecuador, paraguay, perú, uruguay, venezuela, bolivia]
+                bombo:
+                  type: integer
+                  enum: [1, 2, 3, 4]
+                isParticipating:
+                  type: boolean
+                isCurrentChampion:
+                  type: boolean
+                isFromQualifiers:
+                  type: boolean
+      responses:
+        '201':
+          description: Team created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all teams
+      tags: [Teams]
+      responses:
+        '200':
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+
+  /teams/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get team by ID
+      tags: [Teams]
+      responses:
+        '200':
+          description: Team details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '404':
+          description: Team not found
+
+    patch:
+      summary: Update team
+      tags: [Teams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                country:
+                  type: string
+                  enum: [argentina, brasil, chile, colombia, ecuador, paraguay, perú, uruguay, venezuela, bolivia]
+                bombo:
+                  type: integer
+                  enum: [1, 2, 3, 4]
+                isParticipating:
+                  type: boolean
+                isCurrentChampion:
+                  type: boolean
+                isFromQualifiers:
+                  type: boolean
+      responses:
+        '200':
+          description: Team updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+        '404':
+          description: Team not found
+
+  /teams/{id}/logo:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Upload team logo
+      tags: [Teams]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                logo:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Logo uploaded successfully
+        '404':
+          description: Team not found
+
+  /groups:
+    post:
+      summary: Create a new group
+      tags: [Groups]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Group created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all groups
+      tags: [Groups]
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+
+  /groups/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get group by ID
+      tags: [Groups]
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+        '404':
+          description: Group not found
+
+  /tournament-teams:
+    post:
+      summary: Register teams in a tournament
+      tags: [Tournament Teams]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournamentId
+                - teams
+              properties:
+                tournamentId:
+                  type: string
+                  format: uuid
+                teams:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - teamId
+                    properties:
+                      teamId:
+                        type: string
+                        format: uuid
+      responses:
+        '201':
+          description: Teams registered successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TournamentTeam'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all tournament teams
+      tags: [Tournament Teams]
+      responses:
+        '200':
+          description: List of tournament teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TournamentTeam'
+
+  /tournament-teams/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get tournament team by ID
+      tags: [Tournament Teams]
+      responses:
+        '200':
+          description: Tournament team details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentTeam'
+        '404':
+          description: Tournament team not found
+
+  /tournament-teams/tournament/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get teams by tournament ID
+      tags: [Tournament Teams]
+      responses:
+        '200':
+          description: List of teams in the tournament
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TournamentTeam'
+        '404':
+          description: Tournament not found
+
+  /tournament-teams/group-stage-draw/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get group stage draw for tournament
+      tags: [Tournament Teams]
+      responses:
+        '200':
+          description: Group stage draw details
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Tournament not found
+
+  /matches:
+    post:
+      summary: Create a new match
+      tags: [Matches]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournamentId
+                - stage
+                - homeTeamId
+                - awayTeamId
+                - matchDate
+                - stadium
+              properties:
+                tournamentId:
+                  type: string
+                  format: uuid
+                stage:
+                  type: string
+                  enum: [qualifyingStage, groupStage, knockoutStage]
+                groupId:
+                  type: string
+                  format: uuid
+                matchDay:
+                  type: integer
+                  minimum: 1
+                  maximum: 6
+                homeTeamId:
+                  type: string
+                  format: uuid
+                awayTeamId:
+                  type: string
+                  format: uuid
+                matchDate:
+                  type: string
+                  format: date-time
+                stadium:
+                  type: string
+                matchType:
+                  type: string
+                  enum: [firstLeg, secondLeg, singleMatch]
+                qualifyingStageId:
+                  type: string
+                  format: uuid
+                knockoutStageId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Match created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all matches
+      tags: [Matches]
+      responses:
+        '200':
+          description: List of matches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Match'
+
+  /matches/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get match by ID
+      tags: [Matches]
+      responses:
+        '200':
+          description: Match details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '404':
+          description: Match not found
+
+    patch:
+      summary: Update match
+      tags: [Matches]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - homeGoals
+                - awayGoals
+                - status
+              properties:
+                homeGoals:
+                  type: integer
+                  minimum: 0
+                awayGoals:
+                  type: integer
+                  minimum: 0
+                status:
+                  type: string
+                  enum: [pending, finished, cancelled]
+                firstTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+                secondTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: Match updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '404':
+          description: Match not found
+
+  /qualifying-stages:
+    post:
+      summary: Create a qualifying stage
+      tags: [Qualifying Stages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournamentId
+                - qualifyingStage
+                - firstTeamId
+                - secondTeamId
+              properties:
+                tournamentId:
+                  type: string
+                  format: uuid
+                qualifyingStage:
+                  type: string
+                  enum: [firstRound, secondRound, thirdRound]
+                firstTeamId:
+                  type: string
+                  format: uuid
+                secondTeamId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Qualifying stage created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualifyingStage'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all qualifying stages
+      tags: [Qualifying Stages]
+      responses:
+        '200':
+          description: List of qualifying stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QualifyingStage'
+
+  /qualifying-stages/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get qualifying stage by ID
+      tags: [Qualifying Stages]
+      responses:
+        '200':
+          description: Qualifying stage details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualifyingStage'
+        '404':
+          description: Qualifying stage not found
+
+    patch:
+      summary: Update qualifying stage
+      tags: [Qualifying Stages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstTeamAggregateGoals
+                - secondTeamAggregateGoals
+              properties:
+                firstTeamAggregateGoals:
+                  type: integer
+                  minimum: 0
+                secondTeamAggregateGoals:
+                  type: integer
+                  minimum: 0
+                winnerTeamId:
+                  type: string
+                  format: uuid
+                firstLegPlayed:
+                  type: boolean
+                secondLegPlayed:
+                  type: boolean
+                penaltiesPlayed:
+                  type: boolean
+                firstTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+                secondTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: Qualifying stage updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QualifyingStage'
+        '404':
+          description: Qualifying stage not found
+
+  /knockout-stages:
+    post:
+      summary: Create a knockout stage
+      tags: [Knockout Stages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tournamentId
+                - knockoutStage
+                - firstTeamId
+                - secondTeamId
+              properties:
+                tournamentId:
+                  type: string
+                  format: uuid
+                knockoutStage:
+                  type: string
+                  enum: [roundOf16, quarterFinal, semiFinal, final]
+                firstTeamId:
+                  type: string
+                  format: uuid
+                secondTeamId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Knockout stage created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnockoutStage'
+        '400':
+          description: Invalid input
+
+    get:
+      summary: Get all knockout stages
+      tags: [Knockout Stages]
+      responses:
+        '200':
+          description: List of knockout stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KnockoutStage'
+
+  /knockout-stages/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get knockout stage by ID
+      tags: [Knockout Stages]
+      responses:
+        '200':
+          description: Knockout stage details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnockoutStage'
+        '404':
+          description: Knockout stage not found
+
+    patch:
+      summary: Update knockout stage
+      tags: [Knockout Stages]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstTeamAggregateGoals
+                - secondTeamAggregateGoals
+              properties:
+                firstTeamAggregateGoals:
+                  type: integer
+                  minimum: 0
+                secondTeamAggregateGoals:
+                  type: integer
+                  minimum: 0
+                winnerTeamId:
+                  type: string
+                  format: uuid
+                firstLegPlayed:
+                  type: boolean
+                secondLegPlayed:
+                  type: boolean
+                penaltiesPlayed:
+                  type: boolean
+                firstTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+                secondTeamPenaltyGoals:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: Knockout stage updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnockoutStage'
+        '404':
+          description: Knockout stage not found
+
+  /group-classification:
+    get:
+      summary: Get group classifications
+      tags: [Group Classification]
+      parameters:
+        - name: tournamentId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Group classification details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupClassification'
+        '404':
+          description: Group classification not found
+
+    post:
+      summary: Create group classifications
+      tags: [Group Classification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - groupId
+                - classifications
+              properties:
+                groupId:
+                  type: string
+                  format: uuid
+                classifications:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      tournamentTeamId:
+                        type: string
+                        format: uuid
+                      matchesPlayed:
+                        type: integer
+                        minimum: 0
+                      wins:
+                        type: integer
+                        minimum: 0
+                      draws:
+                        type: integer
+                        minimum: 0
+                      losses:
+                        type: integer
+                        minimum: 0
+                      goalsFor:
+                        type: integer
+                        minimum: 0
+                      goalsAgainst:
+                        type: integer
+                        minimum: 0
+                      points:
+                        type: integer
+                        minimum: 0
+      responses:
+        '201':
+          description: Group classifications created successfully
+        '400':
+          description: Invalid input
+
+tags:
+  - name: Tournaments
+    description: Tournament management endpoints
+  - name: Teams
+    description: Team management endpoints
+  - name: Groups
+    description: Group management endpoints
+  - name: Tournament Teams
+    description: Tournament team registration endpoints
+  - name: Matches
+    description: Match management endpoints
+  - name: Qualifying Stages
+    description: Qualifying stage management endpoints
+  - name: Knockout Stages
+    description: Knockout stage management endpoints
+  - name: Group Classification
+    description: Group classification endpoints 
