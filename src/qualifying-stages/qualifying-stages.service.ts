@@ -252,6 +252,11 @@ export class QualifyingStagesService {
           },
           firstTeamAggregateGoals: 1,
           secondTeamAggregateGoals: 1,
+          firstLegPlayed: 1,
+          secondLegPlayed: 1,
+          penaltiesPlayed: 1,
+          firstTeamPenaltyGoals: 1,
+          secondTeamPenaltyGoals: 1,
           winnerTeam: {
             $cond: {
               if: { $gt: [{ $size: '$winnerTeam' }, 0] },
@@ -293,6 +298,7 @@ export class QualifyingStagesService {
   ): Promise<QualifyingStageResponse> {
     const { winnerTeamId, ...rest } = updateQualifyingStageDto;
 
+    // TODO: Remove winnerTeamId from updateQualifyingStageDto
     if (winnerTeamId) {
       const [qualifyingStage, winnerTeam] = await Promise.all([
         this.qualifyingStageModel
