@@ -100,17 +100,34 @@ MatchSchema.index(
   },
 );
 
-// Índice único para partidos de etapas con ida/vuelta o partido único
+// Índice único para partidos de fase clasificatoria (qualifying stage)
 MatchSchema.index(
   {
-    tournamentId: 1,
-    stage: 1,
-    homeTeamId: 1,
-    awayTeamId: 1,
+    qualifyingStageId: 1,
     matchType: 1,
   },
   {
     unique: true,
-    partialFilterExpression: { matchType: { $exists: true } },
+    partialFilterExpression: {
+      stage: 'qualifyingStage',
+      qualifyingStageId: { $exists: true },
+      matchType: { $exists: true },
+    },
+  },
+);
+
+// Indice único para partidos de fase de eliminación (knockout stage)
+MatchSchema.index(
+  {
+    knockoutStageId: 1,
+    matchType: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      stage: 'knockoutStage',
+      knockoutStageId: { $exists: true },
+      matchType: { $exists: true },
+    },
   },
 );
