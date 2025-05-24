@@ -248,6 +248,11 @@ export class KnockoutStagesService {
           },
           firstTeamAggregateGoals: 1,
           secondTeamAggregateGoals: 1,
+          firstLegPlayed: 1,
+          secondLegPlayed: 1,
+          penaltiesPlayed: 1,
+          firstTeamPenaltyGoals: 1,
+          secondTeamPenaltyGoals: 1,
           winnerTeam: {
             $cond: {
               if: { $gt: [{ $size: '$winnerTeam' }, 0] },
@@ -289,6 +294,7 @@ export class KnockoutStagesService {
   ): Promise<KnockoutStageResponse> {
     const { winnerTeamId, ...rest } = updateKnockoutStageDto;
 
+    // TODO: Remove winnerTeamId from updateKnockoutStageDto
     if (winnerTeamId) {
       const [knockoutStage, winnerTeam] = await Promise.all([
         this.knockoutStageModel
