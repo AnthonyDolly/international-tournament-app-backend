@@ -41,6 +41,21 @@ export class KnockoutStage {
   @Prop({ required: false, default: null })
   secondTeamAggregateGoals: number;
 
+  @Prop({ required: false, default: false })
+  firstLegPlayed: boolean;
+
+  @Prop({ required: false, default: false })
+  secondLegPlayed: boolean;
+
+  @Prop({ required: false, default: false })
+  penaltiesPlayed: boolean;
+
+  @Prop({ required: false, default: null })
+  firstTeamPenaltyGoals: number;
+
+  @Prop({ required: false, default: null })
+  secondTeamPenaltyGoals: number;
+
   @Prop({
     type: Types.ObjectId,
     ref: TournamentTeam.name,

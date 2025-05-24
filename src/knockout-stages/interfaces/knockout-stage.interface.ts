@@ -26,6 +26,11 @@ export interface KnockoutStageResponse {
   };
   firstTeamAggregateGoals: number;
   secondTeamAggregateGoals: number;
+  firstLegPlayed: boolean;
+  secondLegPlayed: boolean;
+  penaltiesPlayed: boolean;
+  firstTeamPenaltyGoals: number;
+  secondTeamPenaltyGoals: number;
   winnerTeam: {
     _id: Types.ObjectId;
     team: {
