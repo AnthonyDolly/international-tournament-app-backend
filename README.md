@@ -21,6 +21,7 @@ A RESTful API for managing Copa Libertadores tournament matches, teams, and stag
 - Node.js (v16 or higher)
 - MongoDB (v4.4 or higher)
 - npm or yarn
+- Docker and Docker Compose (for containerized MongoDB)
 
 ## Installation
 
@@ -43,7 +44,16 @@ MONGODB_URI=mongodb://localhost:27017/copa-libertadores
 PORT=3000
 ```
 
-4. Start MongoDB service:
+4. Start MongoDB using Docker Compose:
+```bash
+# Start MongoDB container
+docker-compose up -d
+
+# To stop MongoDB container
+docker-compose down
+```
+
+Alternatively, you can start MongoDB service directly:
 ```bash
 # On Ubuntu/Debian
 sudo service mongod start
