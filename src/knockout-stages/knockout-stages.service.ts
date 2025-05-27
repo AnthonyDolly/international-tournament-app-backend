@@ -36,11 +36,18 @@ export class KnockoutStagesService {
       );
       this.validateTeamDifference(firstTeam.teamId._id, secondTeam.teamId._id);
 
+      // Enhanced validation for knockout stages
+      await this.validateKnockoutStageConflicts(createKnockoutStageDto);
+
       const knockoutStage = await this.knockoutStageModel.create({
         ...createKnockoutStageDto,
         tournamentId: tournament._id,
         firstTeamId: firstTeam._id,
         secondTeamId: secondTeam._id,
+        // Set isSingleMatch to true for finals unless explicitly set in DTO
+        isSingleMatch:
+          createKnockoutStageDto.isSingleMatch ??
+          createKnockoutStageDto.knockoutStage === 'final',
       });
 
       return this.findOne(knockoutStage._id.toString());
@@ -205,6 +212,7 @@ export class KnockoutStagesService {
         $project: {
           _id: 1,
           knockoutStage: 1,
+          isSingleMatch: 1,
           tournament: {
             name: '$tournament.name',
             year: '$tournament.year',
@@ -246,10 +254,13 @@ export class KnockoutStagesService {
               },
             },
           },
+          firstTeamGoals: 1,
+          secondTeamGoals: 1,
           firstTeamAggregateGoals: 1,
           secondTeamAggregateGoals: 1,
           firstLegPlayed: 1,
           secondLegPlayed: 1,
+          isCompleted: 1,
           penaltiesPlayed: 1,
           firstTeamPenaltyGoals: 1,
           secondTeamPenaltyGoals: 1,
@@ -380,6 +391,93 @@ export class KnockoutStagesService {
     if (firstTeamId.toString() === secondTeamId.toString()) {
       throw new BadRequestException(
         'Cannot create a knockout stage with the same team',
+      );
+    }
+  }
+
+  /**
+   * Validates knockout stage conflicts including:
+   * 1. Swapped teams (A vs B = B vs A)
+   * 2. Team participation conflicts (same team in multiple matchups)
+   */
+  private async validateKnockoutStageConflicts(
+    createKnockoutStageDto: CreateKnockoutStageDto,
+  ): Promise<void> {
+    const { tournamentId, knockoutStage, firstTeamId, secondTeamId } =
+      createKnockoutStageDto;
+
+    // Find all existing knockout stages for the same tournament and knockout stage
+    const existingStages = await this.knockoutStageModel
+      .find({
+        tournamentId: new Types.ObjectId(tournamentId),
+        knockoutStage,
+      })
+      .lean();
+
+    // Check for swapped teams (A vs B = B vs A)
+    const hasSwappedTeamConflict = existingStages.some((stage) => {
+      const existingFirstTeam = stage.firstTeamId.toString();
+      const existingSecondTeam = stage.secondTeamId.toString();
+
+      return (
+        // Exact match (already handled by unique index, but checking for clarity)
+        (existingFirstTeam === firstTeamId &&
+          existingSecondTeam === secondTeamId) ||
+        // Swapped teams
+        (existingFirstTeam === secondTeamId &&
+          existingSecondTeam === firstTeamId)
+      );
+    });
+
+    if (hasSwappedTeamConflict) {
+      throw new BadRequestException(
+        `A knockout stage matchup already exists between these teams in ${knockoutStage} of this tournament (regardless of team order)`,
+      );
+    }
+
+    // Check for team participation conflicts (same team in multiple matchups)
+    const conflictingTeams = existingStages.filter((stage) => {
+      const existingFirstTeam = stage.firstTeamId.toString();
+      const existingSecondTeam = stage.secondTeamId.toString();
+
+      return (
+        existingFirstTeam === firstTeamId ||
+        existingFirstTeam === secondTeamId ||
+        existingSecondTeam === firstTeamId ||
+        existingSecondTeam === secondTeamId
+      );
+    });
+
+    if (conflictingTeams.length > 0) {
+      // Get team names for better error message
+      const [firstTeam, secondTeam] = await Promise.all([
+        this.tournamentTeamService.findOne(firstTeamId),
+        this.tournamentTeamService.findOne(secondTeamId),
+      ]);
+
+      const conflictingTeamNames: string[] = [];
+      conflictingTeams.forEach((stage) => {
+        const existingFirstTeam = stage.firstTeamId.toString();
+        const existingSecondTeam = stage.secondTeamId.toString();
+
+        if (
+          existingFirstTeam === firstTeamId ||
+          existingSecondTeam === firstTeamId
+        ) {
+          conflictingTeamNames.push(firstTeam.teamId.name as string);
+        }
+        if (
+          existingFirstTeam === secondTeamId ||
+          existingSecondTeam === secondTeamId
+        ) {
+          conflictingTeamNames.push(secondTeam.teamId.name as string);
+        }
+      });
+
+      const uniqueConflictingTeams = [...new Set(conflictingTeamNames)];
+
+      throw new BadRequestException(
+        `The following team(s) are already participating in another ${knockoutStage} matchup in this tournament: ${uniqueConflictingTeams.join(', ')}`,
       );
     }
   }
