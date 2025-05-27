@@ -24,6 +24,9 @@ export interface KnockoutStageResponse {
       logo: string;
     };
   };
+  isSingleMatch: boolean;
+  firstTeamGoals: number;
+  secondTeamGoals: number;
   firstTeamAggregateGoals: number;
   secondTeamAggregateGoals: number;
   firstLegPlayed: boolean;
@@ -31,6 +34,7 @@ export interface KnockoutStageResponse {
   penaltiesPlayed: boolean;
   firstTeamPenaltyGoals: number;
   secondTeamPenaltyGoals: number;
+  isCompleted: boolean;
   winnerTeam: {
     _id: Types.ObjectId;
     team: {
@@ -39,4 +43,6 @@ export interface KnockoutStageResponse {
       logo: string;
     };
   } | null;
+  matchType?: string;
+  isFinished?: boolean;
 }
