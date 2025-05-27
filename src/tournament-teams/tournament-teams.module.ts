@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TournamentTeamsService } from './tournament-teams.service';
 import { TournamentTeamsController } from './tournament-teams.controller';
+import { GroupStageDrawService } from './services/group-stage-draw.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
   TournamentTeam,
@@ -21,7 +22,7 @@ import { TeamsModule } from 'src/teams/teams.module';
     TeamsModule,
   ],
   controllers: [TournamentTeamsController],
-  providers: [TournamentTeamsService],
+  providers: [TournamentTeamsService, GroupStageDrawService],
   exports: [TournamentTeamsService],
 })
 export class TournamentTeamsModule {}
