@@ -4,22 +4,23 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateGroupClassificationsDto } from './dto/create-group-classification.dto';
 import { InjectModel } from '@nestjs/mongoose';
-import { GroupClassification } from './entities/group-classification.entity';
 import { Model, Types } from 'mongoose';
-import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
-import { GroupsService } from 'src/groups/groups.service';
-import { UpdateGroupClassificationsDto } from './dto/update-group-classifications.dto';
+import {
+  CreateGroupClassificationsDto,
+  UpdateGroupClassificationsDto,
+} from './dto';
+import { KNOCKOUT_CONSTANTS } from './constants/knockout.constants';
+import { GroupClassification } from './entities/group-classification.entity';
+import { AggregationHelper, KnockoutHelper } from './helpers';
 import {
   DrawResult,
   GroupClassificationResult,
   GroupWithTeams,
   QualifiedTeams,
 } from './interfaces/knockout.interface';
-import { KNOCKOUT_CONSTANTS } from './constants/knockout.constants';
-import { AggregationHelper } from './helpers/aggregation.helper';
-import { KnockoutHelper } from './helpers/knockout.helper';
+import { GroupsService } from 'src/groups/groups.service';
+import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
 
 @Injectable()
 export class GroupClassificationService {

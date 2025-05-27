@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
 import { GroupClassificationService } from './group-classification.service';
-import { CreateGroupClassificationsDto } from './dto/create-group-classification.dto';
-import { QueryGroupDto } from './dto/query-group.dto';
-import { DrawKnockoutDto } from './dto/draw-knockout.dto';
+import {
+  CreateGroupClassificationsDto,
+  QueryGroupDto,
+  DrawKnockoutDto,
+} from './dto';
 
 @Controller('group-classification')
 export class GroupClassificationController {
