@@ -1,4 +1,10 @@
-import { IsIn, IsMongoId, IsNotEmpty } from 'class-validator';
+import {
+  IsIn,
+  IsMongoId,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateKnockoutStageDto {
   @IsNotEmpty()
@@ -16,4 +22,8 @@ export class CreateKnockoutStageDto {
   @IsNotEmpty()
   @IsMongoId()
   secondTeamId: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isSingleMatch?: boolean;
 }

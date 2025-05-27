@@ -1,13 +1,6 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
 import { CreateKnockoutStageDto } from './create-knockout-stage.dto';
-import {
-  IsBoolean,
-  IsInt,
-  IsMongoId,
-  IsNotEmpty,
-  IsOptional,
-  Min,
-} from 'class-validator';
+import { IsBoolean, IsInt, IsMongoId, IsOptional, Min } from 'class-validator';
 
 export class UpdateKnockoutStageDto extends PartialType(
   OmitType(CreateKnockoutStageDto, [
@@ -16,19 +9,29 @@ export class UpdateKnockoutStageDto extends PartialType(
     'secondTeamId',
   ]),
 ) {
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
-  firstTeamAggregateGoals: number;
+  firstTeamGoals?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsInt()
   @Min(0)
-  secondTeamAggregateGoals: number;
+  secondTeamGoals?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  firstTeamAggregateGoals?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  secondTeamAggregateGoals?: number;
 
   @IsOptional()
   @IsMongoId()
-  winnerTeamId: string;
+  winnerTeamId?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -37,6 +40,10 @@ export class UpdateKnockoutStageDto extends PartialType(
   @IsOptional()
   @IsBoolean()
   secondLegPlayed?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isCompleted?: boolean;
 
   @IsOptional()
   @IsBoolean()
