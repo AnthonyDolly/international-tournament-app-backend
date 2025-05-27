@@ -40,6 +40,9 @@ export class QualifyingStagesService {
         secondTeam.teamId.isFromQualifiers,
       );
 
+      // Enhanced validation for qualifying stages
+      await this.validateQualifyingStageConflicts(createQualifyingStageDto);
+
       const qualifyingStage = await this.qualifyingStageModel.create({
         ...createQualifyingStageDto,
         tournamentId: tournament._id,
@@ -395,6 +398,93 @@ export class QualifyingStagesService {
     if (!firstTeamFromQualifiers || !secondTeamFromQualifiers) {
       throw new BadRequestException(
         'Both teams must be from qualifiers to participate in qualifying stages',
+      );
+    }
+  }
+
+  /**
+   * Validates qualifying stage conflicts including:
+   * 1. Swapped teams (A vs B = B vs A)
+   * 2. Team participation conflicts (same team in multiple matchups)
+   */
+  private async validateQualifyingStageConflicts(
+    createQualifyingStageDto: CreateQualifyingStageDto,
+  ): Promise<void> {
+    const { tournamentId, qualifyingStage, firstTeamId, secondTeamId } =
+      createQualifyingStageDto;
+
+    // Find all existing qualifying stages for the same tournament and qualifying stage
+    const existingStages = await this.qualifyingStageModel
+      .find({
+        tournamentId: new Types.ObjectId(tournamentId),
+        qualifyingStage,
+      })
+      .lean();
+
+    // Check for swapped teams (A vs B = B vs A)
+    const hasSwappedTeamConflict = existingStages.some((stage) => {
+      const existingFirstTeam = stage.firstTeamId.toString();
+      const existingSecondTeam = stage.secondTeamId.toString();
+
+      return (
+        // Exact match (already handled by unique index, but checking for clarity)
+        (existingFirstTeam === firstTeamId &&
+          existingSecondTeam === secondTeamId) ||
+        // Swapped teams
+        (existingFirstTeam === secondTeamId &&
+          existingSecondTeam === firstTeamId)
+      );
+    });
+
+    if (hasSwappedTeamConflict) {
+      throw new BadRequestException(
+        `A qualifying stage matchup already exists between these teams in Stage ${qualifyingStage} of this tournament (regardless of team order)`,
+      );
+    }
+
+    // Check for team participation conflicts (same team in multiple matchups)
+    const conflictingTeams = existingStages.filter((stage) => {
+      const existingFirstTeam = stage.firstTeamId.toString();
+      const existingSecondTeam = stage.secondTeamId.toString();
+
+      return (
+        existingFirstTeam === firstTeamId ||
+        existingFirstTeam === secondTeamId ||
+        existingSecondTeam === firstTeamId ||
+        existingSecondTeam === secondTeamId
+      );
+    });
+
+    if (conflictingTeams.length > 0) {
+      // Get team names for better error message
+      const [firstTeam, secondTeam] = await Promise.all([
+        this.tournamentTeamService.findOne(firstTeamId),
+        this.tournamentTeamService.findOne(secondTeamId),
+      ]);
+
+      const conflictingTeamNames: string[] = [];
+      conflictingTeams.forEach((stage) => {
+        const existingFirstTeam = stage.firstTeamId.toString();
+        const existingSecondTeam = stage.secondTeamId.toString();
+
+        if (
+          existingFirstTeam === firstTeamId ||
+          existingSecondTeam === firstTeamId
+        ) {
+          conflictingTeamNames.push(firstTeam.teamId.name as string);
+        }
+        if (
+          existingFirstTeam === secondTeamId ||
+          existingSecondTeam === secondTeamId
+        ) {
+          conflictingTeamNames.push(secondTeam.teamId.name as string);
+        }
+      });
+
+      const uniqueConflictingTeams = [...new Set(conflictingTeamNames)];
+
+      throw new BadRequestException(
+        `The following team(s) are already participating in another Stage ${qualifyingStage} matchup in this tournament: ${uniqueConflictingTeams.join(', ')}`,
       );
     }
   }
