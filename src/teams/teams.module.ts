@@ -3,6 +3,7 @@ import { TeamsService } from './teams.service';
 import { TeamsController } from './teams.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Team, TeamSchema } from './entities/team.entity';
+import { FileManagementService } from './services/file-management.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { Team, TeamSchema } from './entities/team.entity';
     ]),
   ],
   controllers: [TeamsController],
-  providers: [TeamsService],
+  providers: [TeamsService, FileManagementService],
   exports: [TeamsService],
 })
 export class TeamsModule {}
