@@ -5,29 +5,19 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
+import { SOUTH_AMERICAN_COUNTRIES, BOMBOS } from '../constants/team.constants';
 
 export class CreateTeamDto {
   @IsString()
+  @IsNotEmpty()
   name: string;
 
-  @IsIn(
-    [
-      'argentina',
-      'brasil',
-      'chile',
-      'colombia',
-      'ecuador',
-      'paraguay',
-      'perú',
-      'uruguay',
-      'venezuela',
-      'bolivia',
-    ],
-    { message: 'country must be a valid South American country' },
-  )
+  @IsIn(SOUTH_AMERICAN_COUNTRIES, {
+    message: 'country must be a valid South American country',
+  })
   country: string;
 
-  @IsIn([1, 2, 3, 4], {
+  @IsIn(BOMBOS, {
     message: 'bombo must be one of the values: 1, 2, 3, or 4',
   })
   @IsNotEmpty()
@@ -37,17 +27,17 @@ export class CreateTeamDto {
     message: 'isParticipating must be a boolean value',
   })
   @IsOptional()
-  isParticipating: boolean;
+  isParticipating?: boolean;
 
   @IsBoolean({
     message: 'isCurrentChampion must be a boolean value',
   })
   @IsOptional()
-  isCurrentChampion: boolean;
+  isCurrentChampion?: boolean;
 
   @IsBoolean({
     message: 'isFromQualifiers must be a boolean value',
   })
   @IsOptional()
-  isFromQualifiers: boolean;
+  isFromQualifiers?: boolean;
 }

@@ -1,9 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { SOUTH_AMERICAN_COUNTRIES, BOMBOS } from '../constants/team.constants';
 
 export type TeamDocument = HydratedDocument<Team>;
 
-@Schema()
+@Schema({ timestamps: true })
 export class Team {
   _id: Types.ObjectId;
 
@@ -20,32 +21,21 @@ export class Team {
 
   @Prop({
     required: true,
-    enum: [
-      'argentina',
-      'brasil',
-      'chile',
-      'colombia',
-      'ecuador',
-      'paraguay',
-      'perú',
-      'uruguay',
-      'venezuela',
-      'bolivia',
-    ],
+    enum: SOUTH_AMERICAN_COUNTRIES,
     lowercase: true,
   })
   country: string;
 
   @Prop({
     required: true,
-    enum: [1, 2, 3, 4],
+    enum: BOMBOS,
     type: Number,
   })
   bombo: number;
 
   @Prop({
     required: false,
-    default: false,
+    default: true,
   })
   isParticipating: boolean;
 
@@ -65,3 +55,6 @@ export class Team {
 export const TeamSchema = SchemaFactory.createForClass(Team);
 
 TeamSchema.index({ name: 1, country: 1 }, { unique: true });
+TeamSchema.index({ isParticipating: 1 });
+TeamSchema.index({ bombo: 1 });
+TeamSchema.index({ country: 1 });
