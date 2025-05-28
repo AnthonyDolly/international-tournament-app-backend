@@ -1,23 +1,40 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Team, TeamDocument } from './entities/team.entity';
-import { CreateTeamDto } from './dto/create-team.dto';
-import { UpdateTeamDto } from './dto/update-team.dto';
+import { CreateTeamDto, UpdateTeamDto, QueryTeamsDto } from './dto';
+import { FileManagementService } from './services/file-management.service';
+import {
+  TEAM_CONSTANTS,
+  SouthAmericanCountry,
+  BomboType,
+} from './constants/team.constants';
+import { TeamResponse, PopulatedTeamResponse } from './types/team.types';
 
+/**
+ * Service for managing teams and their operations
+ */
 @Injectable()
 export class TeamsService {
-  constructor(@InjectModel(Team.name) private teamModel: Model<TeamDocument>) {}
+  constructor(
+    @InjectModel(Team.name) private readonly teamModel: Model<TeamDocument>,
+    private readonly fileManagementService: FileManagementService,
+  ) {}
 
-  async create(createTeamDto: CreateTeamDto) {
+  /**
+   * Creates a new team
+   * @param createTeamDto Team data to create
+   * @returns Created team
+   */
+  async create(createTeamDto: CreateTeamDto): Promise<TeamResponse> {
     try {
-      return await this.teamModel.create(createTeamDto);
+      const team = await this.teamModel.create(createTeamDto);
+      return this.formatTeamResponse(team);
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -26,101 +43,239 @@ export class TeamsService {
     }
   }
 
-  async uploadLogo(id: string, file: Express.Multer.File) {
-    if (id.length !== 24) {
-      fs.unlinkSync(file.path);
-      throw new BadRequestException('Invalid ObjectId');
-    }
-
-    const team = await this.teamModel.findById(id);
-
-    if (!team) {
-      fs.unlinkSync(file.path);
-      throw new BadRequestException('Team not found');
-    }
-
-    if (team.logo) {
-      const oldLogoPath = path.join('./uploads', team.logo);
-      if (fs.existsSync(oldLogoPath)) {
-        fs.unlinkSync(oldLogoPath);
-      }
-    }
-
-    team.logo = file.filename;
-    await team.save();
-
-    return {
-      ...team.toObject(),
-      logo: `http://localhost:3000/uploads/${team.logo}`,
-    };
-  }
-
-  async findAll() {
-    const teams = await this.teamModel
-      .find({ isParticipating: true })
-      .sort({ isCurrentChampion: -1 });
-
-    return teams.map((team) => ({
-      ...team.toObject(),
-      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
-    }));
-  }
-
-  async findOne(id: string) {
-    const team = await this.teamModel.findById(id).populate({
-      path: 'bombo',
-      select: 'name',
-    });
-
-    if (!team) {
-      throw new BadRequestException(`Team with id ${id} not found`);
-    }
-
-    return {
-      ...team.toObject(),
-      logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
-    };
-  }
-
-  async update(id: string, updateTeamDto: UpdateTeamDto) {
+  /**
+   * Uploads a logo for a team
+   * @param id Team ID
+   * @param file Logo file
+   * @returns Updated team with logo URL
+   */
+  async uploadLogo(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<TeamResponse> {
     try {
-      const updatedTeam = await this.teamModel.findByIdAndUpdate(
-        id,
-        {
-          $set: updateTeamDto,
-        },
-        {
-          new: true,
-        },
-      );
+      this.validateObjectId(id);
+      this.fileManagementService.validateImageFile(file);
 
-      if (!updatedTeam) {
-        throw new BadRequestException(`Team with id ${id} not found`);
+      const team = await this.findTeamById(id);
+
+      // Delete old logo if exists
+      if (team.logo) {
+        this.fileManagementService.deleteOldLogo(team.logo);
       }
 
-      return updatedTeam;
+      // Update team with new logo
+      team.logo = file.filename;
+      await team.save();
+
+      return this.formatTeamResponse(team);
     } catch (error) {
+      this.fileManagementService.cleanupUploadedFile(file);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
       this.handleExceptions(error);
     }
   }
 
-  async findByIds(ids: string[]) {
+  /**
+   * Retrieves teams with filtering and sorting
+   * @param queryDto Query parameters DTO
+   * @returns Array of teams
+   */
+  async findAll(queryDto: QueryTeamsDto = {}): Promise<TeamResponse[]> {
+    const {
+      country,
+      bombo,
+      isCurrentChampion,
+      isFromQualifiers,
+      includeInactive = false,
+      sortBy = 'isCurrentChampion',
+      sortOrder = 'desc',
+    } = queryDto;
+
+    const filters = {
+      ...(country && { country: country as SouthAmericanCountry }),
+      ...(bombo && { bombo: bombo as BomboType }),
+      ...(isCurrentChampion !== undefined && { isCurrentChampion }),
+      ...(isFromQualifiers !== undefined && { isFromQualifiers }),
+    };
+
+    const query = this.buildQuery(filters, includeInactive);
+    const sortOptions = this.buildSortOptions(sortBy, sortOrder);
+
+    const teams = await query.sort(sortOptions).exec();
+    return teams.map((team) => this.formatTeamResponse(team));
+  }
+
+  /**
+   * Retrieves a team by ID with populated data
+   * @param id Team ID
+   * @returns Team with populated bombo data
+   */
+  async findOne(id: string): Promise<PopulatedTeamResponse> {
+    this.validateObjectId(id);
+
+    const team = await this.teamModel
+      .findById(id)
+      .populate({ path: 'bombo', select: 'name' })
+      .exec();
+
+    if (!team) {
+      throw new NotFoundException(`Team with id ${id} not found`);
+    }
+
+    return this.formatPopulatedTeamResponse(team);
+  }
+
+  /**
+   * Updates a team
+   * @param id Team ID
+   * @param updateTeamDto Updated team data
+   * @returns Updated team
+   */
+  async update(
+    id: string,
+    updateTeamDto: UpdateTeamDto,
+  ): Promise<TeamResponse> {
+    try {
+      this.validateObjectId(id);
+
+      const updatedTeam = await this.teamModel.findByIdAndUpdate(
+        id,
+        { $set: updateTeamDto },
+        { new: true, runValidators: true },
+      );
+
+      if (!updatedTeam) {
+        throw new NotFoundException(`Team with id ${id} not found`);
+      }
+
+      return this.formatTeamResponse(updatedTeam);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.handleExceptions(error);
+    }
+  }
+
+  /**
+   * Finds teams by their IDs
+   * @param ids Array of team IDs
+   * @returns Array of teams
+   */
+  async findByIds(ids: string[]): Promise<TeamResponse[]> {
     if (ids.length === 0) {
       return [];
     }
 
-    if (ids.some((id) => id.length !== 24)) {
-      throw new BadRequestException('Invalid ObjectId');
-    }
+    this.validateObjectIds(ids);
 
-    const teams = await this.teamModel.find({ _id: { $in: ids } });
+    const teams = await this.teamModel.find({ _id: { $in: ids } }).exec();
 
-    return teams;
+    return teams.map((team) => this.formatTeamResponse(team));
   }
 
-  private handleExceptions(error: any) {
+  /**
+   * Deletes a team (soft delete by setting isParticipating to false)
+   * @param id Team ID
+   * @returns Success message
+   */
+  async remove(id: string): Promise<{ message: string }> {
+    this.validateObjectId(id);
+
+    const team = await this.teamModel.findByIdAndUpdate(
+      id,
+      { $set: { isParticipating: false } },
+      { new: true },
+    );
+
+    if (!team) {
+      throw new NotFoundException(`Team with id ${id} not found`);
+    }
+
+    return { message: `Team ${team.name} has been deactivated successfully` };
+  }
+
+  // Private helper methods
+
+  private async findTeamById(id: string): Promise<TeamDocument> {
+    const team = await this.teamModel.findById(id);
+    if (!team) {
+      throw new NotFoundException(`Team with id ${id} not found`);
+    }
+    return team;
+  }
+
+  private validateObjectId(id: string): void {
+    if (
+      id.length !== TEAM_CONSTANTS.OBJECT_ID_LENGTH ||
+      !Types.ObjectId.isValid(id)
+    ) {
+      throw new BadRequestException('Invalid ObjectId format');
+    }
+  }
+
+  private validateObjectIds(ids: string[]): void {
+    const invalidIds = ids.filter(
+      (id) =>
+        id.length !== TEAM_CONSTANTS.OBJECT_ID_LENGTH ||
+        !Types.ObjectId.isValid(id),
+    );
+
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `Invalid ObjectId format for IDs: ${invalidIds.join(', ')}`,
+      );
+    }
+  }
+
+  private buildQuery(filters: any, includeInactive: boolean) {
+    const query: any = {};
+
+    if (!includeInactive) {
+      query.isParticipating = true;
+    }
+
+    // Apply filters
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined) {
+        query[key] = value;
+      }
+    });
+
+    return this.teamModel.find(query);
+  }
+
+  private buildSortOptions(
+    sortBy: string,
+    sortOrder: string,
+  ): Record<string, 1 | -1> {
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    return { [sortBy]: sortDirection };
+  }
+
+  private formatTeamResponse(team: TeamDocument): TeamResponse {
+    return {
+      ...team.toObject(),
+      logo: this.fileManagementService.generateLogoUrl(team.logo),
+    } as TeamResponse;
+  }
+
+  private formatPopulatedTeamResponse(team: any): PopulatedTeamResponse {
+    return {
+      ...team.toObject(),
+      logo: this.fileManagementService.generateLogoUrl(team.logo),
+    } as PopulatedTeamResponse;
+  }
+
+  private handleExceptions(error: any): never {
     if (error.code === 11000) {
-      console.log(error);
+      console.error('Duplicate key error:', error);
       const keyValueString = Object.entries(error.keyValue)
         .map(([key, value]) => `${key}: '${value}'`)
         .join(', ');
@@ -129,7 +284,8 @@ export class TeamsService {
         `Team already exists in the database { ${keyValueString} }`,
       );
     }
-    console.log(error);
-    throw new InternalServerErrorException(`Check Server logs`);
+
+    console.error('Unexpected error:', error);
+    throw new InternalServerErrorException('Check server logs for details');
   }
 }
