@@ -18,10 +18,3 @@ export interface PopulatedTeamResponse extends Omit<TeamResponse, 'bombo'> {
     name: string;
   };
 }
-
-export interface TeamQueryOptions {
-  filters?: Partial<Pick<TeamResponse, 'country' | 'bombo' | 'isCurrentChampion' | 'isFromQualifiers'>>;
-  includeInactive?: boolean;
-  sortBy?: 'name' | 'country' | 'bombo' | 'isCurrentChampion';
-  sortOrder?: 'asc' | 'desc';
-} 
