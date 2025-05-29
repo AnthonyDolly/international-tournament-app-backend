@@ -1,8 +1,8 @@
 export const KNOCKOUT_CONSTANTS = {
   ROUNDS: {
     ROUND_OF_16: 'Round of 16',
-    QUARTER_FINALS: 'Quarter Finals',
-    SEMI_FINALS: 'Semi Finals',
+    QUARTER_FINALS: 'Quarterfinals',
+    SEMI_FINALS: 'Semifinals',
     FINAL: 'Final',
   },
   MIN_TEAMS_FOR_KNOCKOUT: 2,
@@ -16,4 +16,4 @@ export const SORT_CRITERIA = {
   POINTS: 'points',
   GOAL_DIFFERENCE: 'goalDifference',
   GOALS_FOR: 'goalsFor',
-} as const; 
+} as const;
