@@ -10,14 +10,13 @@ import {
   CreateGroupClassificationsDto,
   UpdateGroupClassificationsDto,
 } from './dto';
-import { KNOCKOUT_CONSTANTS } from './constants/knockout.constants';
 import { GroupClassification } from './entities/group-classification.entity';
 import { AggregationHelper, KnockoutHelper } from './helpers';
 import {
-  DrawResult,
   GroupClassificationResult,
   GroupWithTeams,
   QualifiedTeams,
+  CompleteBracketResult,
 } from './interfaces/knockout.interface';
 import { GroupsService } from 'src/groups/groups.service';
 import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
@@ -131,11 +130,13 @@ export class GroupClassificationService {
   }
 
   /**
-   * Generates knockout phase matchups from group stage results
+   * Generates complete tournament bracket structure from Round of 16 to Final
    * @param tournamentId Tournament identifier
-   * @returns Draw result with matchups
+   * @returns Complete bracket result with all rounds
    */
-  async drawKnockoutMatchups(tournamentId: string): Promise<DrawResult> {
+  async drawCompleteTournamentBracket(
+    tournamentId: string,
+  ): Promise<CompleteBracketResult> {
     try {
       const groupsData = await this.findByTournamentIdAndGroupId(tournamentId);
 
@@ -152,17 +153,15 @@ export class GroupClassificationService {
 
       KnockoutHelper.validateTeamBalance(firstPlaceTeams, secondPlaceTeams);
 
-      const matchups = KnockoutHelper.createRandomKnockoutMatchups(
+      const roundOf16Matchups = KnockoutHelper.createRandomKnockoutMatchups(
         firstPlaceTeams,
         secondPlaceTeams,
       );
 
-      return {
+      return KnockoutHelper.createCompleteBracket(
+        roundOf16Matchups,
         tournamentId,
-        round: KNOCKOUT_CONSTANTS.ROUNDS.ROUND_OF_16,
-        totalMatchups: matchups.length,
-        matchups,
-      };
+      );
     } catch (error) {
       if (
         error instanceof NotFoundException ||

@@ -27,9 +27,9 @@ export class GroupClassificationController {
     return this.groupClassificationService.create(createGroupClassificationDto);
   }
 
-  @Post('draw-knockout')
-  drawKnockout(@Body() drawKnockoutDto: DrawKnockoutDto) {
-    return this.groupClassificationService.drawKnockoutMatchups(
+  @Post('draw-complete-bracket')
+  drawCompleteBracket(@Body() drawKnockoutDto: DrawKnockoutDto) {
+    return this.groupClassificationService.drawCompleteTournamentBracket(
       drawKnockoutDto.tournamentId,
     );
   }
