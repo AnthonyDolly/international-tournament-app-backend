@@ -3,6 +3,9 @@ import {
   GroupWithTeams,
   KnockoutTeam,
   KnockoutMatchup,
+  BracketMatchup,
+  TournamentRound,
+  CompleteBracketResult,
 } from '../interfaces/knockout.interface';
 import { KNOCKOUT_CONSTANTS } from '../constants/knockout.constants';
 
@@ -146,5 +149,105 @@ export class KnockoutHelper {
         'Uneven number of first and second place teams for knockout draw',
       );
     }
+  }
+
+  /**
+   * Creates the complete tournament bracket structure from Round of 16 to Final
+   */
+  static createCompleteBracket(
+    roundOf16Matchups: KnockoutMatchup[],
+    tournamentId: string,
+  ): CompleteBracketResult {
+    const rounds: TournamentRound[] = [];
+
+    // Round of 16
+    rounds.push({
+      round: KNOCKOUT_CONSTANTS.ROUNDS.ROUND_OF_16,
+      matchups: roundOf16Matchups,
+    });
+
+    // Quarterfinals
+    const quarterfinalMatchups =
+      this.createQuarterfinalMatchups(roundOf16Matchups);
+    rounds.push({
+      round: KNOCKOUT_CONSTANTS.ROUNDS.QUARTER_FINALS,
+      matchups: quarterfinalMatchups,
+    });
+
+    // Semifinals
+    const semifinalMatchups =
+      this.createSemifinalMatchups(quarterfinalMatchups);
+    rounds.push({
+      round: KNOCKOUT_CONSTANTS.ROUNDS.SEMI_FINALS,
+      matchups: semifinalMatchups,
+    });
+
+    // Final
+    const finalMatchup = this.createFinalMatchup(semifinalMatchups);
+    rounds.push({
+      round: KNOCKOUT_CONSTANTS.ROUNDS.FINAL,
+      matchups: [finalMatchup],
+    });
+
+    return {
+      tournamentId,
+      rounds,
+    };
+  }
+
+  /**
+   * Creates quarterfinal matchups from Round of 16 results
+   */
+  private static createQuarterfinalMatchups(
+    roundOf16Matchups: KnockoutMatchup[],
+  ): BracketMatchup[] {
+    const quarterfinals: BracketMatchup[] = [];
+
+    // Group matchups in pairs for quarterfinals
+    for (let i = 0; i < roundOf16Matchups.length; i += 2) {
+      const match1 = roundOf16Matchups[i];
+      const match2 = roundOf16Matchups[i + 1];
+
+      quarterfinals.push({
+        matchupId: `QF_${Math.floor(i / 2) + 1}`,
+        from: [match1.matchupId, match2.matchupId],
+      });
+    }
+
+    return quarterfinals;
+  }
+
+  /**
+   * Creates semifinal matchups from quarterfinal results
+   */
+  private static createSemifinalMatchups(
+    quarterfinalMatchups: BracketMatchup[],
+  ): BracketMatchup[] {
+    const semifinals: BracketMatchup[] = [];
+
+    // Group quarterfinals in pairs for semifinals
+    for (let i = 0; i < quarterfinalMatchups.length; i += 2) {
+      const qf1 = quarterfinalMatchups[i];
+      const qf2 = quarterfinalMatchups[i + 1];
+
+      semifinals.push({
+        matchupId: `SF_${Math.floor(i / 2) + 1}`,
+        from: [qf1.matchupId, qf2.matchupId],
+      });
+    }
+
+    return semifinals;
+  }
+
+  /**
+   * Creates the final matchup from semifinal results
+   */
+  private static createFinalMatchup(
+    semifinalMatchups: BracketMatchup[],
+  ): BracketMatchup {
+    return {
+      matchupId: 'F',
+      from: semifinalMatchups.map((sf) => sf.matchupId),
+    };
   }
 }
