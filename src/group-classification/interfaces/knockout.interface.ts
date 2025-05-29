@@ -13,11 +13,19 @@ export interface KnockoutMatchup {
   secondPlaceTeam: KnockoutTeam;
 }
 
-export interface DrawResult {
-  tournamentId: string;
+export interface BracketMatchup {
+  matchupId: string;
+  from: string[];
+}
+
+export interface TournamentRound {
   round: string;
-  totalMatchups: number;
-  matchups: KnockoutMatchup[];
+  matchups: KnockoutMatchup[] | BracketMatchup[];
+}
+
+export interface CompleteBracketResult {
+  tournamentId: string;
+  rounds: TournamentRound[];
 }
 
 export interface QualifiedTeams {
@@ -50,4 +58,4 @@ export interface GroupWithTeams {
 
 export interface GroupClassificationResult {
   groups: GroupWithTeams[];
-} 
+}
