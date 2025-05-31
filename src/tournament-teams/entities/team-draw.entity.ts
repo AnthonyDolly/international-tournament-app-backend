@@ -3,7 +3,7 @@ export class TeamDraw {
   country: string;
   bombo: number;
   isCurrentChampion: boolean;
-  isFromQualifiers: boolean;
+  isFromQualifyingStage: boolean;
   logo: string;
   originalId: string;
 
@@ -12,7 +12,7 @@ export class TeamDraw {
     country: string,
     bombo: number,
     isCurrentChampion: boolean = false,
-    isFromQualifiers: boolean = false,
+    isFromQualifyingStage: boolean = false,
     logo: string,
     originalId: string,
   ) {
@@ -20,7 +20,7 @@ export class TeamDraw {
     this.country = country;
     this.bombo = bombo;
     this.isCurrentChampion = isCurrentChampion;
-    this.isFromQualifiers = isFromQualifiers;
+    this.isFromQualifyingStage = isFromQualifyingStage;
     this.logo = logo;
     this.originalId = originalId;
   }

@@ -15,7 +15,7 @@ export interface GroupStageResult {
       bombo: number;
       logo: string | null;
       isCurrentChampion: boolean;
-      isFromQualifiers: boolean;
+      isFromQualifyingStage: boolean;
     }>;
   }>;
 }
@@ -56,7 +56,7 @@ export class GroupStageDrawService {
         teamData.country,
         teamData.bombo,
         teamData.isCurrentChampion || false,
-        teamData.isFromQualifiers || false,
+        teamData.isFromQualifyingStage || false,
         teamData.logo,
         teamEntry._id.toString(),
       );
@@ -74,7 +74,7 @@ export class GroupStageDrawService {
           bombo: team.bombo,
           logo: team.logo ? `http://localhost:3000/uploads/${team.logo}` : null,
           isCurrentChampion: team.isCurrentChampion,
-          isFromQualifiers: team.isFromQualifiers,
+          isFromQualifyingStage: team.isFromQualifyingStage,
         })),
       })),
     };
@@ -122,7 +122,7 @@ export class GroupStageDrawService {
   }
 
   private sortTeamsByConstraints(teams: TeamDraw[]): TeamDraw[] {
-    const nonQualifierTeams = teams.filter((team) => !team.isFromQualifiers);
+    const nonQualifierTeams = teams.filter((team) => !team.isFromQualifyingStage);
     const countryCount = this.countOccurrences(
       nonQualifierTeams.map((team) => team.country),
     );
@@ -134,8 +134,12 @@ export class GroupStageDrawService {
       }
 
       // More country restrictions first (if not from qualifiers)
-      const countA = a.isFromQualifiers ? 0 : countryCount.get(a.country) || 0;
-      const countB = b.isFromQualifiers ? 0 : countryCount.get(b.country) || 0;
+      const countA = a.isFromQualifyingStage
+        ? 0
+        : countryCount.get(a.country) || 0;
+      const countB = b.isFromQualifyingStage
+        ? 0
+        : countryCount.get(b.country) || 0;
 
       if (countA !== countB) {
         return countB - countA;
@@ -233,7 +237,7 @@ export class GroupStageDrawService {
       // If either team is from qualifiers, ignore country restriction
       if (
         existingTeam.country === team.country &&
-        !(existingTeam.isFromQualifiers || team.isFromQualifiers)
+        !(existingTeam.isFromQualifyingStage || team.isFromQualifyingStage)
       ) {
         return false;
       }
