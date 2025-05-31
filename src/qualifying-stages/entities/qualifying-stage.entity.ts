@@ -63,6 +63,14 @@ export class QualifyingStage {
     default: null,
   })
   winnerTeamId: TournamentTeam;
+
+  @Prop({
+    type: Types.ObjectId,
+    ref: QualifyingStage.name,
+    required: false,
+    default: null,
+  })
+  nextQualifyingStageMatchId: QualifyingStage;
 }
 
 export const QualifyingStageSchema =
