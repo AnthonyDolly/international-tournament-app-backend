@@ -36,8 +36,8 @@ export class QualifyingStagesService {
       );
       this.validateTeamDifference(firstTeam.teamId._id, secondTeam.teamId._id);
       this.validateTeamsFromQualifiers(
-        firstTeam.teamId.isFromQualifiers,
-        secondTeam.teamId.isFromQualifiers,
+        firstTeam.teamId.isFromQualifyingStage,
+        secondTeam.teamId.isFromQualifyingStage,
       );
 
       // Enhanced validation for qualifying stages
