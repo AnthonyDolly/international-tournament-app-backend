@@ -29,6 +29,11 @@ export class TournamentTeamsController {
     return this.tournamentTeamsService.findByTournament(id);
   }
 
+  @Get('qualifying-stage-draw/:id')
+  qualifyingStageDraw(@Param('id', ValidateMongoIdPipe) id: string) {
+    return this.tournamentTeamsService.qualifyingStageDraw(id);
+  }
+
   @Get('group-stage-draw/:id')
   groupStageDraw(@Param('id', ValidateMongoIdPipe) id: string) {
     return this.tournamentTeamsService.groupStageDraw(id);
