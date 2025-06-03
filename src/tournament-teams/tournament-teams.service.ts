@@ -13,6 +13,10 @@ import {
   GroupStageDrawService,
   GroupStageResult,
 } from './services/group-stage-draw.service';
+import {
+  QualifyingStageDrawService,
+  QualifyingStageResult,
+} from './services/qualifying-stage-draw.service';
 import { TOURNAMENT_CONSTANTS } from './constants/tournament.constants';
 
 /**
@@ -26,6 +30,7 @@ export class TournamentTeamsService {
     private readonly tournamentsService: TournamentsService,
     private readonly teamsService: TeamsService,
     private readonly groupStageDrawService: GroupStageDrawService,
+    private readonly qualifyingStageDrawService: QualifyingStageDrawService,
   ) {}
 
   /**
@@ -179,6 +184,21 @@ export class TournamentTeamsService {
       .exec();
 
     return tournamentTeams;
+  }
+
+  /**
+   * Generate a qualifying stage draw for a tournament
+   * @param tournamentId The tournament ID
+   * @returns Complete qualifying stage draw with phases 1, 2, and 3
+   */
+  async qualifyingStageDraw(
+    tournamentId: string,
+  ): Promise<QualifyingStageResult> {
+    await this.tournamentsService.findOne(tournamentId);
+    const qualifyingTeams = await this.teamsService.findAll({
+      isFromQualifyingStage: true,
+    });
+    return this.qualifyingStageDrawService.generateDraw(qualifyingTeams);
   }
 
   /**
