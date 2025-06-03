@@ -32,8 +32,8 @@ export class QueryTeamsDto {
     if (value === 'false') return false;
     return value;
   })
-  @IsBoolean({ message: 'isFromQualifiers must be a boolean value' })
-  isFromQualifiers?: boolean;
+  @IsBoolean({ message: 'isFromQualifyingStage must be a boolean value' })
+  isFromQualifyingStage?: boolean;
 
   @IsOptional()
   @Transform(({ value }) => {
@@ -45,10 +45,11 @@ export class QueryTeamsDto {
   includeInactive?: boolean;
 
   @IsOptional()
-  @IsIn(['name', 'country', 'bombo', 'isCurrentChampion'], {
-    message: 'sortBy must be one of: name, country, bombo, isCurrentChampion',
+  @IsIn(['name', 'country', 'ranking', 'bombo', 'isCurrentChampion'], {
+    message:
+      'sortBy must be one of: name, country, ranking, bombo, isCurrentChampion',
   })
-  sortBy?: 'name' | 'country' | 'bombo' | 'isCurrentChampion';
+  sortBy?: 'name' | 'country' | 'ranking' | 'bombo' | 'isCurrentChampion';
 
   @IsOptional()
   @IsIn(['asc', 'desc'], {

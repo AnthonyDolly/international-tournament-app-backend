@@ -1,13 +1,28 @@
 import {
   IsBoolean,
   IsIn,
+  IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
+  Min,
 } from 'class-validator';
-import { SOUTH_AMERICAN_COUNTRIES, BOMBOS } from '../constants/team.constants';
+import {
+  SOUTH_AMERICAN_COUNTRIES,
+  SouthAmericanCountry,
+  BOMBOS,
+  BomboType,
+  QUALIFYING_ENTRY_STAGES,
+  QualifyingEntryStage,
+} from '../constants/team.constants';
 
 export class CreateTeamDto {
+  @IsInt()
+  @IsNotEmpty()
+  @Min(1)
+  ranking: number;
+
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -15,13 +30,17 @@ export class CreateTeamDto {
   @IsIn(SOUTH_AMERICAN_COUNTRIES, {
     message: 'country must be a valid South American country',
   })
-  country: string;
+  country: SouthAmericanCountry;
+
+  @IsNumber()
+  @IsNotEmpty()
+  points: number;
 
   @IsIn(BOMBOS, {
     message: 'bombo must be one of the values: 1, 2, 3, or 4',
   })
   @IsNotEmpty()
-  bombo: number;
+  bombo: BomboType;
 
   @IsBoolean({
     message: 'isParticipating must be a boolean value',
@@ -36,8 +55,14 @@ export class CreateTeamDto {
   isCurrentChampion?: boolean;
 
   @IsBoolean({
-    message: 'isFromQualifiers must be a boolean value',
+    message: 'isFromQualifyingStage must be a boolean value',
   })
   @IsOptional()
-  isFromQualifiers?: boolean;
+  isFromQualifyingStage?: boolean;
+
+  @IsIn(QUALIFYING_ENTRY_STAGES, {
+    message: 'qualifyingEntryStage must be one of the values: 1, 2, or 3',
+  })
+  @IsOptional()
+  qualifyingEntryStage?: QualifyingEntryStage;
 }

@@ -20,5 +20,8 @@ export const SOUTH_AMERICAN_COUNTRIES = [
 
 export const BOMBOS = [1, 2, 3, 4] as const;
 
+export const QUALIFYING_ENTRY_STAGES = [1, 2, 3] as const;
+
 export type SouthAmericanCountry = (typeof SOUTH_AMERICAN_COUNTRIES)[number];
 export type BomboType = (typeof BOMBOS)[number];
+export type QualifyingEntryStage = (typeof QUALIFYING_ENTRY_STAGES)[number];
