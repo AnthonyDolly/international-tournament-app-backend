@@ -6,6 +6,7 @@ export class TeamDraw {
   isFromQualifyingStage: boolean;
   logo: string;
   originalId: string;
+  ranking?: number;
 
   constructor(
     name: string,
@@ -15,6 +16,7 @@ export class TeamDraw {
     isFromQualifyingStage: boolean = false,
     logo: string,
     originalId: string,
+    ranking?: number,
   ) {
     this.name = name;
     this.country = country;
@@ -23,6 +25,7 @@ export class TeamDraw {
     this.isFromQualifyingStage = isFromQualifyingStage;
     this.logo = logo;
     this.originalId = originalId;
+    this.ranking = ranking;
   }
 
   toString(): string {
