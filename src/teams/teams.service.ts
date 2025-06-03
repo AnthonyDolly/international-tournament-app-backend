@@ -91,23 +91,30 @@ export class TeamsService {
       country,
       bombo,
       isCurrentChampion,
-      isFromQualifiers,
+      isFromQualifyingStage,
       includeInactive = false,
-      sortBy = 'isCurrentChampion',
-      sortOrder = 'desc',
+      sortBy = 'ranking',
+      sortOrder = 'asc',
     } = queryDto;
 
     const filters = {
       ...(country && { country: country as SouthAmericanCountry }),
       ...(bombo && { bombo: bombo as BomboType }),
       ...(isCurrentChampion !== undefined && { isCurrentChampion }),
-      ...(isFromQualifiers !== undefined && { isFromQualifiers }),
+      ...(isFromQualifyingStage !== undefined && { isFromQualifyingStage }),
     };
 
     const query = this.buildQuery(filters, includeInactive);
-    const sortOptions = this.buildSortOptions(sortBy, sortOrder);
 
-    const teams = await query.sort(sortOptions).exec();
+    let teams ;
+
+    if (sortBy === 'ranking') {
+      teams = await this.findAllWithRankingSort(query.getFilter(), sortOrder);
+    } else {
+      const sortOptions = this.buildSortOptions(sortBy, sortOrder);
+      teams = await query.sort(sortOptions).exec();
+    }
+
     return teams.map((team) => this.formatTeamResponse(team));
   }
 
@@ -251,6 +258,37 @@ export class TeamsService {
     return this.teamModel.find(query);
   }
 
+  private async findAllWithRankingSort(
+    filters: any,
+    sortOrder: string,
+  ): Promise<TeamDocument[]> {
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    const nullReplacement = 999999;
+
+    return await this.teamModel
+      .aggregate([
+        {
+          $match: filters,
+        },
+        {
+          $addFields: {
+            sortRanking: {
+              $ifNull: ['$ranking', nullReplacement],
+            },
+          },
+        },
+        {
+          $sort: {
+            sortRanking: sortDirection,
+          },
+        },
+        {
+          $unset: 'sortRanking',
+        },
+      ])
+      .exec();
+  }
+
   private buildSortOptions(
     sortBy: string,
     sortOrder: string,
@@ -259,10 +297,13 @@ export class TeamsService {
     return { [sortBy]: sortDirection };
   }
 
-  private formatTeamResponse(team: TeamDocument): TeamResponse {
+  private formatTeamResponse(team: TeamDocument | any): TeamResponse {
+    const teamObject =
+      typeof team.toObject === 'function' ? team.toObject() : team;
+
     return {
-      ...team.toObject(),
-      logo: this.fileManagementService.generateLogoUrl(team.logo),
+      ...teamObject,
+      logo: this.fileManagementService.generateLogoUrl(teamObject.logo),
     } as TeamResponse;
   }
 
