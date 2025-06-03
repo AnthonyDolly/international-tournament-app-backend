@@ -9,7 +9,7 @@ export interface TeamResponse {
   logo: string | null;
   isParticipating: boolean;
   isCurrentChampion: boolean;
-  isFromQualifiers: boolean;
+  isFromQualifyingStage: boolean;
 }
 
 export interface PopulatedTeamResponse extends Omit<TeamResponse, 'bombo'> {
