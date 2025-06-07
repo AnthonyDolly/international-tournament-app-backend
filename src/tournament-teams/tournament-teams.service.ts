@@ -177,9 +177,20 @@ export class TournamentTeamsService {
       );
     }
 
-    return tournamentTeams.map((tournamentTeam) =>
-      this.formatTournamentTeamResponse(tournamentTeam),
-    );
+    return tournamentTeams.map((tournamentTeam) => {
+      try {
+        return this.formatTournamentTeamResponse(tournamentTeam);
+      } catch (error) {
+        console.warn('Failed to generate logo URL:', error);
+        return {
+          ...tournamentTeam,
+          teamId: {
+            ...tournamentTeam.teamId,
+            logo: null,
+          },
+        };
+      }
+    });
   }
 
   private buildBaseQuery() {
