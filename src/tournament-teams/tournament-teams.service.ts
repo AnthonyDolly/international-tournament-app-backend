@@ -9,6 +9,7 @@ import { TournamentTeam } from './entities/tournament-team.entity';
 import { Model, Types } from 'mongoose';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
 import { TeamsService } from 'src/teams/teams.service';
+import { FileManagementService } from 'src/teams/services/file-management.service';
 import {
   GroupStageDrawService,
   GroupStageResult,
@@ -29,6 +30,7 @@ export class TournamentTeamsService {
     private readonly tournamentTeamModel: Model<TournamentTeam>,
     private readonly tournamentsService: TournamentsService,
     private readonly teamsService: TeamsService,
+    private readonly fileManagementService: FileManagementService,
     private readonly groupStageDrawService: GroupStageDrawService,
     private readonly qualifyingStageDrawService: QualifyingStageDrawService,
   ) {}
@@ -129,9 +131,44 @@ export class TournamentTeamsService {
   async findByTournament(id: string) {
     this.validateObjectId(id);
 
-    const tournamentTeams = await this.buildBaseQuery()
-      .find({ tournamentId: new Types.ObjectId(id) })
-      .populate(this.getPopulateOptions())
+    const tournamentTeams = await this.tournamentTeamModel
+      .aggregate([
+        {
+          $match: { tournamentId: new Types.ObjectId(id) },
+        },
+        {
+          $lookup: {
+            from: 'teams',
+            localField: 'teamId',
+            foreignField: '_id',
+            as: 'teamId',
+            pipeline: [
+              {
+                $match: { isParticipating: true },
+              },
+            ],
+          },
+        },
+        {
+          $unwind: '$teamId',
+        },
+        {
+          $lookup: {
+            from: 'tournaments',
+            localField: 'tournamentId',
+            foreignField: '_id',
+            as: 'tournamentId',
+            pipeline: [
+              {
+                $project: { name: 1, year: 1 },
+              },
+            ],
+          },
+        },
+        {
+          $unwind: '$tournamentId',
+        },
+      ])
       .exec();
 
     if (!tournamentTeams || tournamentTeams.length === 0) {
@@ -140,7 +177,9 @@ export class TournamentTeamsService {
       );
     }
 
-    return tournamentTeams;
+    return tournamentTeams.map((tournamentTeam) =>
+      this.formatTournamentTeamResponse(tournamentTeam),
+    );
   }
 
   private buildBaseQuery() {
@@ -152,7 +191,7 @@ export class TournamentTeamsService {
       { path: 'tournamentId', select: 'name year' },
       {
         path: 'teamId',
-        select: '-isParticipating',
+        match: { isParticipating: true },
         populate: { path: 'bombo', select: 'name' },
       },
     ];
@@ -210,6 +249,20 @@ export class TournamentTeamsService {
     await this.tournamentsService.findOne(tournamentId);
     const tournamentTeams = await this.findByTournament(tournamentId);
     return this.groupStageDrawService.generateDraw(tournamentTeams);
+  }
+
+  private formatTournamentTeamResponse(tournamentTeam: any): any {
+    return {
+      ...tournamentTeam,
+      teamId: {
+        ...tournamentTeam.teamId,
+        logo: tournamentTeam.teamId?.logo
+          ? this.fileManagementService.generateLogoUrl(
+              tournamentTeam.teamId.logo,
+            )
+          : null,
+      },
+    };
   }
 
   private handleExceptions(error: any) {

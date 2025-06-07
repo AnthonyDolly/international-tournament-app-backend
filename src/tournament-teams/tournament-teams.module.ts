@@ -10,6 +10,7 @@ import {
 } from './entities/tournament-team.entity';
 import { TournamentsModule } from 'src/tournaments/tournaments.module';
 import { TeamsModule } from 'src/teams/teams.module';
+import { FileManagementService } from 'src/teams/services/file-management.service';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TeamsModule } from 'src/teams/teams.module';
   ],
   controllers: [TournamentTeamsController],
   providers: [
+    FileManagementService,
     TournamentTeamsService,
     GroupStageDrawService,
     QualifyingStageDrawService,
