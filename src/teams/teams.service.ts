@@ -90,7 +90,6 @@ export class TeamsService {
     const {
       country,
       bombo,
-      isCurrentChampion,
       isFromQualifyingStage,
       includeInactive = false,
       sortBy = 'ranking',
@@ -100,18 +99,20 @@ export class TeamsService {
     const filters = {
       ...(country && { country: country as SouthAmericanCountry }),
       ...(bombo && { bombo: bombo as BomboType }),
-      ...(isCurrentChampion !== undefined && { isCurrentChampion }),
       ...(isFromQualifyingStage !== undefined && { isFromQualifyingStage }),
     };
 
     const query = this.buildQuery(filters, includeInactive);
 
-    let teams ;
+    let teams: TeamDocument[] = [];
 
     if (sortBy === 'ranking') {
       teams = await this.findAllWithRankingSort(query.getFilter(), sortOrder);
     } else {
-      const sortOptions = this.buildSortOptions(sortBy, sortOrder);
+      const sortOptions = this.buildSortOptionsWithChampionPriority(
+        sortBy,
+        sortOrder,
+      );
       teams = await query.sort(sortOptions).exec();
     }
 
@@ -279,6 +280,7 @@ export class TeamsService {
         },
         {
           $sort: {
+            isCurrentChampion: -1,
             sortRanking: sortDirection,
           },
         },
@@ -289,12 +291,15 @@ export class TeamsService {
       .exec();
   }
 
-  private buildSortOptions(
+  private buildSortOptionsWithChampionPriority(
     sortBy: string,
     sortOrder: string,
   ): Record<string, 1 | -1> {
     const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    return { [sortBy]: sortDirection };
+    return {
+      isCurrentChampion: -1,
+      [sortBy]: sortDirection,
+    };
   }
 
   private formatTeamResponse(team: TeamDocument | any): TeamResponse {

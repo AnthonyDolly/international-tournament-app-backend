@@ -8,6 +8,7 @@ export const TEAM_CONSTANTS = {
 export const SOUTH_AMERICAN_COUNTRIES = [
   'argentina',
   'brasil',
+  'bolivia',
   'chile',
   'colombia',
   'ecuador',
@@ -15,7 +16,6 @@ export const SOUTH_AMERICAN_COUNTRIES = [
   'perú',
   'uruguay',
   'venezuela',
-  'bolivia',
 ] as const;
 
 export const BOMBOS = [1, 2, 3, 4] as const;
