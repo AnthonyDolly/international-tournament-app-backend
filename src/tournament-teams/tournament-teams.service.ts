@@ -98,6 +98,12 @@ export class TournamentTeamsService {
     return dto.teams.map((team) => ({
       tournamentId: new Types.ObjectId(dto.tournamentId),
       teamId: new Types.ObjectId(team.teamId),
+      ranking: team.ranking,
+      points: team.points,
+      bombo: team.bombo,
+      isCurrentChampion: team.isCurrentChampion,
+      isFromQualifyingStage: team.isFromQualifyingStage,
+      qualifyingEntryStage: team.qualifyingEntryStage,
     }));
   }
 
@@ -159,6 +165,28 @@ export class TournamentTeamsService {
     });
   }
 
+  /**
+   * Soft delete a tournament team
+   * @param id Tournament team ID
+   * @returns Soft deleted tournament team
+   */
+  async softDelete(id: string) {
+    this.validateObjectId(id);
+
+    const tournamentTeam = await this.findOne(id);
+
+    if (tournamentTeam.isParticipating === false) {
+      throw new BadRequestException(
+        `Tournament team with id ${id} already has been eliminated from the tournament`,
+      );
+    }
+
+    tournamentTeam.isParticipating = false;
+    await tournamentTeam.save();
+
+    return tournamentTeam;
+  }
+
   private buildBaseQuery() {
     return this.tournamentTeamModel;
   }
@@ -209,11 +237,16 @@ export class TournamentTeamsService {
     await this.tournamentsService.findOne(tournamentId);
     const tournamentTeams = await this.findByTournament(tournamentId);
     const qualifyingTeams = tournamentTeams
-      .filter(
-        (tournamentTeam) =>
-          tournamentTeam.teamId.isFromQualifyingStage === true,
-      )
-      .map((tournamentTeam) => tournamentTeam.teamId);
+      .filter((tournamentTeam) => tournamentTeam.isFromQualifyingStage === true)
+      .map((tournamentTeam) => ({
+        ...tournamentTeam.teamId,
+        ranking: tournamentTeam.ranking,
+        points: tournamentTeam.points,
+        bombo: tournamentTeam.bombo,
+        isCurrentChampion: tournamentTeam.isCurrentChampion,
+        isFromQualifyingStage: tournamentTeam.isFromQualifyingStage,
+        qualifyingEntryStage: tournamentTeam.qualifyingEntryStage,
+      }));
 
     return this.qualifyingStageDrawService.generateDraw(qualifyingTeams);
   }
@@ -226,7 +259,17 @@ export class TournamentTeamsService {
   async groupStageDraw(tournamentId: string): Promise<GroupStageResult> {
     await this.tournamentsService.findOne(tournamentId);
     const tournamentTeams = await this.findByTournament(tournamentId);
-    return this.groupStageDrawService.generateDraw(tournamentTeams);
+    const formattedTeams = tournamentTeams.map((tournamentTeam) => ({
+      ...tournamentTeam.teamId,
+      ranking: tournamentTeam.ranking,
+      points: tournamentTeam.points,
+      bombo: tournamentTeam.bombo,
+      isCurrentChampion: tournamentTeam.isCurrentChampion,
+      isFromQualifyingStage: tournamentTeam.isFromQualifyingStage,
+      qualifyingEntryStage: tournamentTeam.qualifyingEntryStage,
+    }));
+    console.log(formattedTeams.length);
+    return this.groupStageDrawService.generateDraw(formattedTeams);
   }
 
   private formatTournamentTeamResponse(tournamentTeam: any): any {
@@ -245,10 +288,11 @@ export class TournamentTeamsService {
 
   private handleExceptions(error: any) {
     if (error.code === 11000) {
-      console.log(error);
-      const keyValueString = Object.entries(error.keyValue)
-        .map(([key, value]) => `${key}: '${value}'`)
-        .join(', ');
+      const keyValueString = error.keyValue
+        ? Object.entries(error.keyValue)
+            .map(([key, value]) => `${key}: '${value}'`)
+            .join(', ')
+        : 'unknown duplicate key';
 
       throw new BadRequestException(
         `Tournament Team already exists in the database { ${keyValueString} }`,

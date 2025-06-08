@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { TournamentTeamsService } from './tournament-teams.service';
 import { CreateTournamentTeamsDto } from './dto/create-tournament-team.dto';
 import { ValidateMongoIdPipe } from 'src/common/pipes/validate-mongo-id.pipe';
@@ -27,6 +27,11 @@ export class TournamentTeamsController {
   @Get('tournament/:id')
   findByTournament(@Param('id', ValidateMongoIdPipe) id: string) {
     return this.tournamentTeamsService.findByTournament(id);
+  }
+
+  @Delete(':id')
+  softDelete(@Param('id', ValidateMongoIdPipe) id: string) {
+    return this.tournamentTeamsService.softDelete(id);
   }
 
   @Get('qualifying-stage-draw/:id')
