@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   UseInterceptors,
   UploadedFile,
   Query,
@@ -59,7 +58,7 @@ export class TeamsController {
 
   /**
    * Get all teams with optional filtering and sorting
-   * @example GET /teams?country=argentina&bombo=1&isCurrentChampion=true&sortBy=name&sortOrder=asc
+   * @example GET /teams?country=argentina&sortBy=name&sortOrder=asc
    */
   @Get()
   findAll(
@@ -92,14 +91,5 @@ export class TeamsController {
     @Body() updateTeamDto: UpdateTeamDto,
   ) {
     return this.teamsService.update(id, updateTeamDto);
-  }
-
-  /**
-   * Soft delete a team (deactivate)
-   */
-  @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  remove(@Param('id', ValidateMongoIdPipe) id: string) {
-    return this.teamsService.remove(id);
   }
 }

@@ -12,7 +12,6 @@ import { FileManagementService } from './services/file-management.service';
 import {
   TEAM_CONSTANTS,
   SouthAmericanCountry,
-  BomboType,
 } from './constants/team.constants';
 import { TeamResponse, PopulatedTeamResponse } from './types/team.types';
 
@@ -87,33 +86,20 @@ export class TeamsService {
    * @returns Array of teams
    */
   async findAll(queryDto: QueryTeamsDto = {}): Promise<TeamResponse[]> {
-    const {
-      country,
-      bombo,
-      isFromQualifyingStage,
-      includeInactive = false,
-      sortBy = 'ranking',
-      sortOrder = 'asc',
-    } = queryDto;
+    const { country, sortBy = 'ranking', sortOrder = 'asc' } = queryDto;
 
     const filters = {
       ...(country && { country: country as SouthAmericanCountry }),
-      ...(bombo && { bombo: bombo as BomboType }),
-      ...(isFromQualifyingStage !== undefined && { isFromQualifyingStage }),
     };
 
-    const query = this.buildQuery(filters, includeInactive);
+    const query = this.buildQuery(filters);
 
     let teams: TeamDocument[] = [];
 
-    if (sortBy === 'ranking') {
-      teams = await this.findAllWithRankingSort(query.getFilter(), sortOrder);
+    if (sortBy === 'name') {
+      teams = await query.sort({ name: sortOrder }).exec();
     } else {
-      const sortOptions = this.buildSortOptionsWithChampionPriority(
-        sortBy,
-        sortOrder,
-      );
-      teams = await query.sort(sortOptions).exec();
+      teams = await query.sort({ country: sortOrder }).exec();
     }
 
     return teams.map((team) => this.formatTeamResponse(team));
@@ -127,9 +113,7 @@ export class TeamsService {
   async findOne(id: string): Promise<PopulatedTeamResponse> {
     this.validateObjectId(id);
 
-    const team = await this.teamModel
-      .findById(id)
-      .exec();
+    const team = await this.teamModel.findById(id).exec();
 
     if (!team) {
       throw new NotFoundException(`Team with id ${id} not found`);
@@ -187,27 +171,6 @@ export class TeamsService {
     return teams.map((team) => this.formatTeamResponse(team));
   }
 
-  /**
-   * Deletes a team (soft delete by setting isParticipating to false)
-   * @param id Team ID
-   * @returns Success message
-   */
-  async remove(id: string): Promise<{ message: string }> {
-    this.validateObjectId(id);
-
-    const team = await this.teamModel.findByIdAndUpdate(
-      id,
-      { $set: { isParticipating: false } },
-      { new: true },
-    );
-
-    if (!team) {
-      throw new NotFoundException(`Team with id ${id} not found`);
-    }
-
-    return { message: `Team ${team.name} has been deactivated successfully` };
-  }
-
   // Private helper methods
 
   private async findTeamById(id: string): Promise<TeamDocument> {
@@ -241,12 +204,8 @@ export class TeamsService {
     }
   }
 
-  private buildQuery(filters: any, includeInactive: boolean) {
+  private buildQuery(filters: any) {
     const query: any = {};
-
-    if (!includeInactive) {
-      query.isParticipating = true;
-    }
 
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
@@ -256,49 +215,6 @@ export class TeamsService {
     });
 
     return this.teamModel.find(query);
-  }
-
-  private async findAllWithRankingSort(
-    filters: any,
-    sortOrder: string,
-  ): Promise<TeamDocument[]> {
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    const nullReplacement = 999999;
-
-    return await this.teamModel
-      .aggregate([
-        {
-          $match: filters,
-        },
-        {
-          $addFields: {
-            sortRanking: {
-              $ifNull: ['$ranking', nullReplacement],
-            },
-          },
-        },
-        {
-          $sort: {
-            isCurrentChampion: -1,
-            sortRanking: sortDirection,
-          },
-        },
-        {
-          $unset: 'sortRanking',
-        },
-      ])
-      .exec();
-  }
-
-  private buildSortOptionsWithChampionPriority(
-    sortBy: string,
-    sortOrder: string,
-  ): Record<string, 1 | -1> {
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    return {
-      isCurrentChampion: -1,
-      [sortBy]: sortDirection,
-    };
   }
 
   private formatTeamResponse(team: TeamDocument | any): TeamResponse {
