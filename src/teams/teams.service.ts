@@ -120,16 +120,15 @@ export class TeamsService {
   }
 
   /**
-   * Retrieves a team by ID with populated data
+   * Retrieves a team by ID
    * @param id Team ID
-   * @returns Team with populated bombo data
+   * @returns Team data
    */
   async findOne(id: string): Promise<PopulatedTeamResponse> {
     this.validateObjectId(id);
 
     const team = await this.teamModel
       .findById(id)
-      .populate({ path: 'bombo', select: 'name' })
       .exec();
 
     if (!team) {

@@ -131,44 +131,10 @@ export class TournamentTeamsService {
   async findByTournament(id: string) {
     this.validateObjectId(id);
 
-    const tournamentTeams = await this.tournamentTeamModel
-      .aggregate([
-        {
-          $match: { tournamentId: new Types.ObjectId(id) },
-        },
-        {
-          $lookup: {
-            from: 'teams',
-            localField: 'teamId',
-            foreignField: '_id',
-            as: 'teamId',
-            pipeline: [
-              {
-                $match: { isParticipating: true },
-              },
-            ],
-          },
-        },
-        {
-          $unwind: '$teamId',
-        },
-        {
-          $lookup: {
-            from: 'tournaments',
-            localField: 'tournamentId',
-            foreignField: '_id',
-            as: 'tournamentId',
-            pipeline: [
-              {
-                $project: { name: 1, year: 1 },
-              },
-            ],
-          },
-        },
-        {
-          $unwind: '$tournamentId',
-        },
-      ])
+    const tournamentTeams = await this.buildBaseQuery()
+      .find({ tournamentId: new Types.ObjectId(id) })
+      .populate(this.getPopulateOptions())
+      .lean()
       .exec();
 
     if (!tournamentTeams || tournamentTeams.length === 0) {
@@ -200,11 +166,7 @@ export class TournamentTeamsService {
   private getPopulateOptions() {
     return [
       { path: 'tournamentId', select: 'name year' },
-      {
-        path: 'teamId',
-        match: { isParticipating: true },
-        populate: { path: 'bombo', select: 'name' },
-      },
+      { path: 'teamId', select: '-__v' },
     ];
   }
 
@@ -245,9 +207,14 @@ export class TournamentTeamsService {
     tournamentId: string,
   ): Promise<QualifyingStageResult> {
     await this.tournamentsService.findOne(tournamentId);
-    const qualifyingTeams = await this.teamsService.findAll({
-      isFromQualifyingStage: true,
-    });
+    const tournamentTeams = await this.findByTournament(tournamentId);
+    const qualifyingTeams = tournamentTeams
+      .filter(
+        (tournamentTeam) =>
+          tournamentTeam.teamId.isFromQualifyingStage === true,
+      )
+      .map((tournamentTeam) => tournamentTeam.teamId);
+
     return this.qualifyingStageDrawService.generateDraw(qualifyingTeams);
   }
 
