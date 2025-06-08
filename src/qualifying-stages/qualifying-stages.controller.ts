@@ -15,10 +15,11 @@ export class QualifyingStagesController {
     return this.qualifyingStagesService.create(createQualifyingStageDto);
   }
 
-  // TODO: add pagination
-  @Get()
-  findAll() {
-    return this.qualifyingStagesService.findAll();
+  @Get('tournament/:tournamentId')
+  findAllByTournament(
+    @Param('tournamentId', ValidateMongoIdPipe) tournamentId: string,
+  ) {
+    return this.qualifyingStagesService.findAllByTournament(tournamentId);
   }
 
   @Get(':id')

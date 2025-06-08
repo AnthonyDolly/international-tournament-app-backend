@@ -36,8 +36,8 @@ export class QualifyingStagesService {
       );
       this.validateTeamDifference(firstTeam.teamId._id, secondTeam.teamId._id);
       this.validateTeamsFromQualifiers(
-        firstTeam.teamId.isFromQualifyingStage,
-        secondTeam.teamId.isFromQualifyingStage,
+        firstTeam.isFromQualifyingStage,
+        secondTeam.isFromQualifyingStage,
       );
 
       // Enhanced validation for qualifying stages
@@ -56,9 +56,13 @@ export class QualifyingStagesService {
     }
   }
 
-  async findAll(): Promise<QualifyingStageResponse[]> {
+  async findAllByTournament(
+    tournamentId: string,
+  ): Promise<QualifyingStageResponse[]> {
+    await this.tournamentService.findOne(tournamentId);
+
     const qualifyingStages = await this.qualifyingStageModel
-      .find()
+      .find({ tournamentId: new Types.ObjectId(tournamentId) })
       .populate({
         path: 'tournamentId',
         select: 'name year',
@@ -284,6 +288,7 @@ export class QualifyingStagesService {
               else: null,
             },
           },
+          nextQualifyingStageMatchId: 1,
         },
       },
     ]);
@@ -301,7 +306,6 @@ export class QualifyingStagesService {
   ): Promise<QualifyingStageResponse> {
     const { winnerTeamId, ...rest } = updateQualifyingStageDto;
 
-    // TODO: Remove winnerTeamId from updateQualifyingStageDto
     if (winnerTeamId) {
       const [qualifyingStage, winnerTeam] = await Promise.all([
         this.qualifyingStageModel
