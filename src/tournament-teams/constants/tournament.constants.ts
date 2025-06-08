@@ -9,3 +9,10 @@ export const TOURNAMENT_CONSTANTS = {
 } as const;
 
 export const GROUP_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+
+export const BOMBOS = [1, 2, 3, 4] as const;
+
+export const QUALIFYING_ENTRY_STAGES = [1, 2, 3] as const;
+
+export type BomboType = (typeof BOMBOS)[number];
+export type QualifyingEntryStage = (typeof QUALIFYING_ENTRY_STAGES)[number];
