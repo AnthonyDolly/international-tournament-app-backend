@@ -551,11 +551,11 @@ export class MatchesService {
 
       // Determine winner if it's the second leg
       if (match.matchType === 'secondLeg') {
-        
         if (firstTeamAggregateGoals > secondTeamAggregateGoals) {
           qualifyingStageUpdateData.winnerTeamId =
             qualifyingStage.firstTeam._id.toString();
-          qualifyingEliminatedTeamId = qualifyingStage.secondTeam._id.toString();
+          qualifyingEliminatedTeamId =
+            qualifyingStage.secondTeam._id.toString();
         } else if (secondTeamAggregateGoals > firstTeamAggregateGoals) {
           qualifyingStageUpdateData.winnerTeamId =
             qualifyingStage.secondTeam._id.toString();
@@ -589,11 +589,13 @@ export class MatchesService {
             if (firstTeamPenaltyGoals > secondTeamPenaltyGoals) {
               qualifyingStageUpdateData.winnerTeamId =
                 qualifyingStage.firstTeam._id.toString();
-              qualifyingEliminatedTeamId = qualifyingStage.secondTeam._id.toString();
+              qualifyingEliminatedTeamId =
+                qualifyingStage.secondTeam._id.toString();
             } else if (secondTeamPenaltyGoals > firstTeamPenaltyGoals) {
               qualifyingStageUpdateData.winnerTeamId =
                 qualifyingStage.secondTeam._id.toString();
-              qualifyingEliminatedTeamId = qualifyingStage.firstTeam._id.toString();
+              qualifyingEliminatedTeamId =
+                qualifyingStage.firstTeam._id.toString();
             } else {
               throw new BadRequestException(
                 'Penalty shootout cannot end in a draw. One team must win.',
@@ -650,9 +652,11 @@ export class MatchesService {
         if (firstTeamGoals > secondTeamGoals) {
           knockoutStageUpdateData.winnerTeamId =
             knockoutStage.firstTeam._id.toString();
+          knockoutEliminatedTeamId = knockoutStage.secondTeam._id.toString();
         } else if (secondTeamGoals > firstTeamGoals) {
           knockoutStageUpdateData.winnerTeamId =
             knockoutStage.secondTeam._id.toString();
+          knockoutEliminatedTeamId = knockoutStage.firstTeam._id.toString();
         } else {
           // Handle draw with penalties
           if (
@@ -829,12 +833,17 @@ export class MatchesService {
     }
 
     // Mark eliminated teams as not participating
-    if (qualifyingEliminatedTeamId) {
-      await this.tournamentTeamService.softDelete(qualifyingEliminatedTeamId);
-    }
+    try {
+      if (qualifyingEliminatedTeamId) {
+        await this.tournamentTeamService.softDelete(qualifyingEliminatedTeamId);
+      }
 
-    if (knockoutEliminatedTeamId) {
-      await this.tournamentTeamService.softDelete(knockoutEliminatedTeamId);
+      if (knockoutEliminatedTeamId) {
+        await this.tournamentTeamService.softDelete(knockoutEliminatedTeamId);
+      }
+    } catch (error) {
+      console.error('Failed to mark eliminated teams:', error);
+      // Consider how to handle this error - log, retry, or throw
     }
 
     // Update group classification if it's a group stage match changing from pending to finished
