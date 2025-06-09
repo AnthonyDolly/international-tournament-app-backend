@@ -1,10 +1,16 @@
+interface TeamData {
+  name: string;
+  logo: string | null;
+  originalId: string;
+}
+
 export interface DrawFormatMatch {
   id: string;
   matchNumber: number;
-  firstTeam: any;
-  secondTeam: any;
+  firstTeam: TeamData;
+  secondTeam: TeamData;
   winnerPlaceholder?: string;
-  winnerTeam?: any;
+  winnerTeam?: TeamData;
   stage: number;
   firstTeamAggregateGoals?: number;
   secondTeamAggregateGoals?: number;
@@ -27,4 +33,4 @@ export interface DrawFormatResult {
     completedMatches: number;
     pendingMatches: number;
   };
-} 
+}

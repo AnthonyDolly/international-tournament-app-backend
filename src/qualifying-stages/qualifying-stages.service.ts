@@ -566,10 +566,7 @@ export class QualifyingStagesService {
     // Calculate summary
     const totalMatches = qualifyingStages.length;
     const completedMatches = qualifyingStages.filter(
-      (stage) =>
-        stage.firstLegPlayed &&
-        stage.secondLegPlayed &&
-        (stage as any).winnerTeam,
+      (stage) => !!(stage as any).winnerTeam,
     ).length;
 
     return {
@@ -640,7 +637,7 @@ export class QualifyingStagesService {
   private toTitleCase(str: string): string {
     return str.replace(
       /\w\S*/g,
-      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(),
+      (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase(),
     );
   }
 }
