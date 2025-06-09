@@ -12,6 +12,10 @@ import { Model, Types } from 'mongoose';
 import { TournamentsService } from 'src/tournaments/tournaments.service';
 import { TournamentTeamsService } from 'src/tournament-teams/tournament-teams.service';
 import { QualifyingStageResponse } from './interfaces/qualifying-stage.interface';
+import {
+  DrawFormatMatch,
+  DrawFormatResult,
+} from './interfaces/draw-format.interface';
 
 @Injectable()
 export class QualifyingStagesService {
@@ -39,6 +43,7 @@ export class QualifyingStagesService {
         firstTeam.isFromQualifyingStage,
         secondTeam.isFromQualifyingStage,
       );
+      this.validateTeamParticipation(firstTeam, secondTeam);
 
       // Enhanced validation for qualifying stages
       await this.validateQualifyingStageConflicts(createQualifyingStageDto);
@@ -406,6 +411,22 @@ export class QualifyingStagesService {
     }
   }
 
+  private validateTeamParticipation(firstTeam: any, secondTeam: any): void {
+    // Check if first team is still participating
+    if (firstTeam.isParticipating === false) {
+      throw new BadRequestException(
+        `Team "${firstTeam.teamId.name}" has been eliminated from the tournament and cannot participate in new qualifying stages`,
+      );
+    }
+
+    // Check if second team is still participating
+    if (secondTeam.isParticipating === false) {
+      throw new BadRequestException(
+        `Team "${secondTeam.teamId.name}" has been eliminated from the tournament and cannot participate in new qualifying stages`,
+      );
+    }
+  }
+
   /**
    * Validates qualifying stage conflicts including:
    * 1. Swapped teams (A vs B = B vs A)
@@ -512,6 +533,114 @@ export class QualifyingStagesService {
     console.error('Unexpected error:', error);
     throw new InternalServerErrorException(
       'An unexpected error occurred. Please check server logs.',
+    );
+  }
+
+  // TODO: It remains to add the nextQualifyingStageMatchId to the draw format
+  // TODO: It remains to be seen what happens if there are still qualifying stages to be played
+  async getQualifyingStagesInDrawFormat(
+    tournamentId: string,
+  ): Promise<DrawFormatResult> {
+    // First validate the tournament exists
+    await this.tournamentService.findOne(tournamentId);
+
+    // Get all qualifying stages for this tournament
+    const qualifyingStages = await this.findAllByTournament(tournamentId);
+
+    // Group stages by qualifying stage number
+    const phase1Stages = qualifyingStages.filter(
+      (stage) => stage.qualifyingStage === 1,
+    );
+    const phase2Stages = qualifyingStages.filter(
+      (stage) => stage.qualifyingStage === 2,
+    );
+    const phase3Stages = qualifyingStages.filter(
+      (stage) => stage.qualifyingStage === 3,
+    );
+
+    // Format each phase
+    const phase1Matches = this.formatStagesAsMatches(phase1Stages, 1);
+    const phase2Matches = this.formatStagesAsMatches(phase2Stages, 2);
+    const phase3Matches = this.formatStagesAsMatches(phase3Stages, 3);
+
+    // Calculate summary
+    const totalMatches = qualifyingStages.length;
+    const completedMatches = qualifyingStages.filter(
+      (stage) =>
+        stage.firstLegPlayed &&
+        stage.secondLegPlayed &&
+        (stage as any).winnerTeam,
+    ).length;
+
+    return {
+      phase1: phase1Matches,
+      phase2: phase2Matches,
+      phase3: phase3Matches,
+      summary: {
+        totalMatches,
+        phase1Matches: phase1Matches.length,
+        phase2Matches: phase2Matches.length,
+        phase3Matches: phase3Matches.length,
+        completedMatches,
+        pendingMatches: totalMatches - completedMatches,
+      },
+    };
+  }
+
+  private formatStagesAsMatches(
+    stages: QualifyingStageResponse[],
+    phaseNumber: number,
+  ): DrawFormatMatch[] {
+    return stages.map((stage, index) => {
+      const firstTeamData = {
+        name: (stage as any).firstTeam.teamId.name,
+        logo: (stage as any).firstTeam.teamId.logo,
+        originalId: (stage as any).firstTeam._id.toString(),
+      };
+
+      const secondTeamData = {
+        name: (stage as any).secondTeam.teamId.name,
+        logo: (stage as any).secondTeam.teamId.logo,
+        originalId: (stage as any).secondTeam._id.toString(),
+      };
+
+      // Determine winner placeholder or winner team
+      let winnerPlaceholder: string | undefined;
+      let winnerTeam: any | undefined;
+
+      if ((stage as any).winnerTeam) {
+        winnerTeam = {
+          name: (stage as any).winnerTeam.teamId.name,
+          logo: (stage as any).winnerTeam.teamId.logo,
+          originalId: (stage as any).winnerTeam._id.toString(),
+        };
+      } else {
+        winnerPlaceholder = `Winner of ${this.toTitleCase(firstTeamData.name)} vs ${this.toTitleCase(secondTeamData.name)}`;
+      }
+
+      return {
+        id: `phase${phaseNumber}-match-${index + 1}`,
+        matchNumber: index + 1,
+        firstTeam: firstTeamData,
+        secondTeam: secondTeamData,
+        winnerPlaceholder,
+        winnerTeam,
+        stage: phaseNumber,
+        firstTeamAggregateGoals: stage.firstTeamAggregateGoals,
+        secondTeamAggregateGoals: stage.secondTeamAggregateGoals,
+        firstLegPlayed: stage.firstLegPlayed,
+        secondLegPlayed: stage.secondLegPlayed,
+        penaltiesPlayed: stage.penaltiesPlayed,
+        firstTeamPenaltyGoals: stage.firstTeamPenaltyGoals,
+        secondTeamPenaltyGoals: stage.secondTeamPenaltyGoals,
+      };
+    });
+  }
+
+  private toTitleCase(str: string): string {
+    return str.replace(
+      /\w\S*/g,
+      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(),
     );
   }
 }

@@ -22,6 +22,15 @@ export class QualifyingStagesController {
     return this.qualifyingStagesService.findAllByTournament(tournamentId);
   }
 
+  @Get('draw-format/:tournamentId')
+  getQualifyingStagesInDrawFormat(
+    @Param('tournamentId', ValidateMongoIdPipe) tournamentId: string,
+  ) {
+    return this.qualifyingStagesService.getQualifyingStagesInDrawFormat(
+      tournamentId,
+    );
+  }
+
   @Get(':id')
   findOne(@Param('id', ValidateMongoIdPipe) id: string) {
     return this.qualifyingStagesService.findOne(id);
