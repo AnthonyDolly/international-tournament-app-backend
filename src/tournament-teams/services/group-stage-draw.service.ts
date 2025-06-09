@@ -50,15 +50,14 @@ export class GroupStageDrawService {
 
   private mapTeamsToDrawEntities(tournamentTeams: any[]): TeamDraw[] {
     return tournamentTeams.map((teamEntry) => {
-      const teamData = teamEntry.teamId as any;
       return new TeamDraw(
-        teamData.name,
-        teamData.country,
-        teamData.bombo,
-        teamData.isCurrentChampion || false,
-        teamData.isFromQualifyingStage || false,
-        teamData.logo,
-        teamEntry._id.toString(),
+        teamEntry.name,
+        teamEntry.country,
+        teamEntry.bombo,
+        teamEntry.isCurrentChampion || false,
+        teamEntry.isFromQualifyingStage || false,
+        teamEntry.logo,
+        teamEntry.originalId || teamEntry._id?.toString(),
       );
     });
   }
@@ -122,7 +121,9 @@ export class GroupStageDrawService {
   }
 
   private sortTeamsByConstraints(teams: TeamDraw[]): TeamDraw[] {
-    const nonQualifierTeams = teams.filter((team) => !team.isFromQualifyingStage);
+    const nonQualifierTeams = teams.filter(
+      (team) => !team.isFromQualifyingStage,
+    );
     const countryCount = this.countOccurrences(
       nonQualifierTeams.map((team) => team.country),
     );

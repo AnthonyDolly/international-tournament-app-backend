@@ -130,22 +130,36 @@ export class TournamentTeamsService {
   }
 
   /**
-   * Find tournament teams by tournament ID
+   * Find tournament teams by tournament ID with optional additional filters
    * @param id Tournament ID
+   * @param additionalFilters Optional additional MongoDB filter criteria
    * @returns Array of tournament teams
    */
-  async findByTournament(id: string) {
+  async findByTournament(
+    id: string,
+    additionalFilters: Record<string, any> = {},
+  ) {
     this.validateObjectId(id);
 
+    // Build dynamic query - start with tournament ID and merge additional filters
+    const query = {
+      tournamentId: new Types.ObjectId(id),
+      ...additionalFilters,
+    };
+
     const tournamentTeams = await this.buildBaseQuery()
-      .find({ tournamentId: new Types.ObjectId(id) })
+      .find(query)
       .populate(this.getPopulateOptions())
       .lean()
       .exec();
 
     if (!tournamentTeams || tournamentTeams.length === 0) {
+      const filterDescription =
+        Object.keys(additionalFilters).length > 0
+          ? ` with filters: ${JSON.stringify(additionalFilters)}`
+          : '';
       throw new BadRequestException(
-        `No tournament teams found for tournament with id ${id}`,
+        `No tournament teams found for tournament with id ${id}${filterDescription}`,
       );
     }
 
@@ -235,18 +249,18 @@ export class TournamentTeamsService {
     tournamentId: string,
   ): Promise<QualifyingStageResult> {
     await this.tournamentsService.findOne(tournamentId);
-    const tournamentTeams = await this.findByTournament(tournamentId);
-    const qualifyingTeams = tournamentTeams
-      .filter((tournamentTeam) => tournamentTeam.isFromQualifyingStage === true)
-      .map((tournamentTeam) => ({
-        ...tournamentTeam.teamId,
-        ranking: tournamentTeam.ranking,
-        points: tournamentTeam.points,
-        bombo: tournamentTeam.bombo,
-        isCurrentChampion: tournamentTeam.isCurrentChampion,
-        isFromQualifyingStage: tournamentTeam.isFromQualifyingStage,
-        qualifyingEntryStage: tournamentTeam.qualifyingEntryStage,
-      }));
+    const tournamentTeams = await this.findByTournament(tournamentId, {
+      isFromQualifyingStage: true,
+    });
+    const qualifyingTeams = tournamentTeams.map((tournamentTeam) => ({
+      ...tournamentTeam.teamId,
+      ranking: tournamentTeam.ranking,
+      points: tournamentTeam.points,
+      bombo: tournamentTeam.bombo,
+      isCurrentChampion: tournamentTeam.isCurrentChampion,
+      isFromQualifyingStage: tournamentTeam.isFromQualifyingStage,
+      qualifyingEntryStage: tournamentTeam.qualifyingEntryStage,
+    }));
 
     return this.qualifyingStageDrawService.generateDraw(qualifyingTeams);
   }
@@ -258,7 +272,9 @@ export class TournamentTeamsService {
    */
   async groupStageDraw(tournamentId: string): Promise<GroupStageResult> {
     await this.tournamentsService.findOne(tournamentId);
-    const tournamentTeams = await this.findByTournament(tournamentId);
+    const tournamentTeams = await this.findByTournament(tournamentId, {
+      isParticipating: true,
+    });
     const formattedTeams = tournamentTeams.map((tournamentTeam) => ({
       ...tournamentTeam.teamId,
       ranking: tournamentTeam.ranking,
@@ -268,7 +284,7 @@ export class TournamentTeamsService {
       isFromQualifyingStage: tournamentTeam.isFromQualifyingStage,
       qualifyingEntryStage: tournamentTeam.qualifyingEntryStage,
     }));
-    console.log(formattedTeams.length);
+
     return this.groupStageDrawService.generateDraw(formattedTeams);
   }
 
