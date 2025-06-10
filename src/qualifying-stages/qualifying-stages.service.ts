@@ -235,7 +235,8 @@ export class QualifyingStagesService {
                   if: '$firstTeamInfo.logo',
                   then: {
                     $concat: [
-                      'http://localhost:3000/uploads/',
+                      process.env.BASE_URL || 'http://localhost:3000',
+                      '/uploads/',
                       '$firstTeamInfo.logo',
                     ],
                   },
@@ -253,7 +254,8 @@ export class QualifyingStagesService {
                   if: '$secondTeamInfo.logo',
                   then: {
                     $concat: [
-                      'http://localhost:3000/uploads/',
+                      process.env.BASE_URL || 'http://localhost:3000',
+                      '/uploads/',
                       '$secondTeamInfo.logo',
                     ],
                   },
@@ -281,7 +283,8 @@ export class QualifyingStagesService {
                       if: { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
                       then: {
                         $concat: [
-                          'http://localhost:3000/uploads/',
+                          process.env.BASE_URL || 'http://localhost:3000',
+                          '/uploads/',
                           { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
                         ],
                       },
@@ -539,6 +542,33 @@ export class QualifyingStagesService {
   // TODO: It remains to add the nextQualifyingStageMatchId to the draw format
   // TODO: It remains to be seen what happens if there are still qualifying stages to be played
   async getQualifyingStagesInDrawFormat(tournamentId: string): Promise<any> {
+    // Reusable function to create logo URL aggregation expression
+    const logoUrlExpression = (logoField: any) => ({
+      $let: {
+        vars: {
+          logoFile: logoField,
+        },
+        in: {
+          $cond: {
+            if: {
+              $and: [
+                { $ne: ['$$logoFile', null] },
+                { $ne: ['$$logoFile', ''] },
+              ],
+            },
+            then: {
+              $concat: [
+                process.env.BASE_URL || 'http://localhost:3000',
+                '/uploads/',
+                '$$logoFile',
+              ],
+            },
+            else: null,
+          },
+        },
+      },
+    });
+
     // First validate the tournament exists
     await this.tournamentService.findOne(tournamentId);
 
@@ -630,30 +660,9 @@ export class QualifyingStagesService {
               teamInfo: {
                 name: { $arrayElemAt: ['$firstTeamInfo.name', 0] },
                 country: { $arrayElemAt: ['$firstTeamInfo.country', 0] },
-                logo: {
-                  $let: {
-                    vars: {
-                      logoFile: { $arrayElemAt: ['$firstTeamInfo.logo', 0] },
-                    },
-                    in: {
-                      $cond: {
-                        if: {
-                          $and: [
-                            { $ne: ['$$logoFile', null] },
-                            { $ne: ['$$logoFile', ''] },
-                          ],
-                        },
-                        then: {
-                          $concat: [
-                            'http://localhost:3000/uploads/',
-                            '$$logoFile',
-                          ],
-                        },
-                        else: null,
-                      },
-                    },
-                  },
-                },
+                logo: logoUrlExpression({
+                  $arrayElemAt: ['$firstTeamInfo.logo', 0],
+                }),
               },
             },
             secondTeam: {
@@ -661,30 +670,9 @@ export class QualifyingStagesService {
               teamInfo: {
                 name: { $arrayElemAt: ['$secondTeamInfo.name', 0] },
                 country: { $arrayElemAt: ['$secondTeamInfo.country', 0] },
-                logo: {
-                  $let: {
-                    vars: {
-                      logoFile: { $arrayElemAt: ['$secondTeamInfo.logo', 0] },
-                    },
-                    in: {
-                      $cond: {
-                        if: {
-                          $and: [
-                            { $ne: ['$$logoFile', null] },
-                            { $ne: ['$$logoFile', ''] },
-                          ],
-                        },
-                        then: {
-                          $concat: [
-                            'http://localhost:3000/uploads/',
-                            '$$logoFile',
-                          ],
-                        },
-                        else: null,
-                      },
-                    },
-                  },
-                },
+                logo: logoUrlExpression({
+                  $arrayElemAt: ['$secondTeamInfo.logo', 0],
+                }),
               },
             },
             winnerTeam: {
@@ -695,32 +683,9 @@ export class QualifyingStagesService {
                   teamInfo: {
                     name: { $arrayElemAt: ['$winnerTeamInfo.name', 0] },
                     country: { $arrayElemAt: ['$winnerTeamInfo.country', 0] },
-                    logo: {
-                      $let: {
-                        vars: {
-                          logoFile: {
-                            $arrayElemAt: ['$winnerTeamInfo.logo', 0],
-                          },
-                        },
-                        in: {
-                          $cond: {
-                            if: {
-                              $and: [
-                                { $ne: ['$$logoFile', null] },
-                                { $ne: ['$$logoFile', ''] },
-                              ],
-                            },
-                            then: {
-                              $concat: [
-                                'http://localhost:3000/uploads/',
-                                '$$logoFile',
-                              ],
-                            },
-                            else: null,
-                          },
-                        },
-                      },
-                    },
+                    logo: logoUrlExpression({
+                      $arrayElemAt: ['$winnerTeamInfo.logo', 0],
+                    }),
                   },
                 },
                 else: null,
@@ -857,7 +822,14 @@ export class QualifyingStagesService {
         secondTeam: stage.secondTeam,
         winnerTeam: stage.winnerTeam
           ? stage.winnerTeam
-          : `Winner of ${this.toTitleCase(stage.firstTeam.teamInfo.name)} vs ${this.toTitleCase(stage.secondTeam.teamInfo.name)}`,
+          : {
+              _id: null,
+              teamInfo: {
+                name: `Winner of ${this.toTitleCase(stage.firstTeam.teamInfo.name)} vs ${this.toTitleCase(stage.secondTeam.teamInfo.name)}`,
+                country: null,
+                logo: null,
+              },
+            },
         firstLegMatch: stage.firstLegMatch,
         secondLegMatch: stage.secondLegMatch,
 
