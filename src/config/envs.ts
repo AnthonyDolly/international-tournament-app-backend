@@ -10,8 +10,10 @@ interface EnvVars {
 const envsSchema = joi
   .object({
     PORT: joi.number().required(),
-    MONGODB_URI: joi.string().required(),
-    BASE_URL: joi.string().required(),
+    BASE_URL: joi
+      .string()
+      .uri({ scheme: ['http', 'https'] })
+      .required(),
   })
   .unknown(true);
 
@@ -26,5 +28,6 @@ const envsVars: EnvVars = value;
 export const envs = {
   port: envsVars.PORT,
   mongodbUri: envsVars.MONGODB_URI,
-  baseUrl: envsVars.BASE_URL,
+  // remove trailing slash to avoid `//uploads`
+  baseUrl: envsVars.BASE_URL.replace(/\/+$/, ''),
 };
