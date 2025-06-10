@@ -538,36 +538,292 @@ export class QualifyingStagesService {
 
   // TODO: It remains to add the nextQualifyingStageMatchId to the draw format
   // TODO: It remains to be seen what happens if there are still qualifying stages to be played
-  async getQualifyingStagesInDrawFormat(
-    tournamentId: string,
-  ): Promise<DrawFormatResult> {
+  async getQualifyingStagesInDrawFormat(tournamentId: string): Promise<any> {
     // First validate the tournament exists
     await this.tournamentService.findOne(tournamentId);
 
-    // Get all qualifying stages for this tournament
-    const qualifyingStages = await this.findAllByTournament(tournamentId);
+    // Get the raw aggregate data
+    const qualifyingStagesWithMatches =
+      await this.qualifyingStageModel.aggregate([
+        { $match: { tournamentId: new Types.ObjectId(tournamentId) } },
 
+        // Lookup para matches
+        {
+          $lookup: {
+            from: 'matches',
+            localField: '_id',
+            foreignField: 'qualifyingStageId',
+            as: 'matches',
+          },
+        },
+
+        // Lookup para firstTeam
+        {
+          $lookup: {
+            from: 'tournamentteams',
+            localField: 'firstTeamId',
+            foreignField: '_id',
+            as: 'firstTeamData',
+          },
+        },
+        {
+          $lookup: {
+            from: 'teams',
+            localField: 'firstTeamData.teamId',
+            foreignField: '_id',
+            as: 'firstTeamInfo',
+          },
+        },
+
+        // Lookup para secondTeam
+        {
+          $lookup: {
+            from: 'tournamentteams',
+            localField: 'secondTeamId',
+            foreignField: '_id',
+            as: 'secondTeamData',
+          },
+        },
+        {
+          $lookup: {
+            from: 'teams',
+            localField: 'secondTeamData.teamId',
+            foreignField: '_id',
+            as: 'secondTeamInfo',
+          },
+        },
+
+        // Lookup para winnerTeam
+        {
+          $lookup: {
+            from: 'tournamentteams',
+            localField: 'winnerTeamId',
+            foreignField: '_id',
+            as: 'winnerTeamData',
+          },
+        },
+        {
+          $lookup: {
+            from: 'teams',
+            localField: 'winnerTeamData.teamId',
+            foreignField: '_id',
+            as: 'winnerTeamInfo',
+          },
+        },
+
+        // Restructurar la data
+        {
+          $project: {
+            _id: 1,
+            qualifyingStage: 1,
+            firstTeamAggregateGoals: 1,
+            secondTeamAggregateGoals: 1,
+            firstLegPlayed: 1,
+            secondLegPlayed: 1,
+            penaltiesPlayed: 1,
+            firstTeamPenaltyGoals: 1,
+            secondTeamPenaltyGoals: 1,
+
+            // Estructurar equipos
+            firstTeam: {
+              _id: { $arrayElemAt: ['$firstTeamData._id', 0] },
+              teamInfo: {
+                name: { $arrayElemAt: ['$firstTeamInfo.name', 0] },
+                country: { $arrayElemAt: ['$firstTeamInfo.country', 0] },
+                logo: {
+                  $let: {
+                    vars: {
+                      logoFile: { $arrayElemAt: ['$firstTeamInfo.logo', 0] },
+                    },
+                    in: {
+                      $cond: {
+                        if: {
+                          $and: [
+                            { $ne: ['$$logoFile', null] },
+                            { $ne: ['$$logoFile', ''] },
+                          ],
+                        },
+                        then: {
+                          $concat: [
+                            'http://localhost:3000/uploads/',
+                            '$$logoFile',
+                          ],
+                        },
+                        else: null,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            secondTeam: {
+              _id: { $arrayElemAt: ['$secondTeamData._id', 0] },
+              teamInfo: {
+                name: { $arrayElemAt: ['$secondTeamInfo.name', 0] },
+                country: { $arrayElemAt: ['$secondTeamInfo.country', 0] },
+                logo: {
+                  $let: {
+                    vars: {
+                      logoFile: { $arrayElemAt: ['$secondTeamInfo.logo', 0] },
+                    },
+                    in: {
+                      $cond: {
+                        if: {
+                          $and: [
+                            { $ne: ['$$logoFile', null] },
+                            { $ne: ['$$logoFile', ''] },
+                          ],
+                        },
+                        then: {
+                          $concat: [
+                            'http://localhost:3000/uploads/',
+                            '$$logoFile',
+                          ],
+                        },
+                        else: null,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            winnerTeam: {
+              $cond: {
+                if: { $ne: ['$winnerTeamId', null] },
+                then: {
+                  _id: { $arrayElemAt: ['$winnerTeamData._id', 0] },
+                  teamInfo: {
+                    name: { $arrayElemAt: ['$winnerTeamInfo.name', 0] },
+                    country: { $arrayElemAt: ['$winnerTeamInfo.country', 0] },
+                    logo: {
+                      $let: {
+                        vars: {
+                          logoFile: {
+                            $arrayElemAt: ['$winnerTeamInfo.logo', 0],
+                          },
+                        },
+                        in: {
+                          $cond: {
+                            if: {
+                              $and: [
+                                { $ne: ['$$logoFile', null] },
+                                { $ne: ['$$logoFile', ''] },
+                              ],
+                            },
+                            then: {
+                              $concat: [
+                                'http://localhost:3000/uploads/',
+                                '$$logoFile',
+                              ],
+                            },
+                            else: null,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                else: null,
+              },
+            },
+
+            // Organizar matches por tipo
+            firstLegMatch: {
+              $let: {
+                vars: {
+                  match: {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: '$matches',
+                          cond: { $eq: ['$$this.matchType', 'firstLeg'] },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $ne: ['$$match', null] },
+                    then: {
+                      _id: '$$match._id',
+                      stage: '$$match.stage',
+                      homeTeamId: '$$match.homeTeamId',
+                      awayTeamId: '$$match.awayTeamId',
+                      homeGoals: '$$match.homeGoals',
+                      awayGoals: '$$match.awayGoals',
+                      matchDate: '$$match.matchDate',
+                      stadium: '$$match.stadium',
+                      matchType: '$$match.matchType',
+                      qualifyingStageId: '$$match.qualifyingStageId',
+                      status: '$$match.status',
+                    },
+                    else: null,
+                  },
+                },
+              },
+            },
+            secondLegMatch: {
+              $let: {
+                vars: {
+                  match: {
+                    $arrayElemAt: [
+                      {
+                        $filter: {
+                          input: '$matches',
+                          cond: { $eq: ['$$this.matchType', 'secondLeg'] },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $ne: ['$$match', null] },
+                    then: {
+                      _id: '$$match._id',
+                      stage: '$$match.stage',
+                      homeTeamId: '$$match.homeTeamId',
+                      awayTeamId: '$$match.awayTeamId',
+                      homeGoals: '$$match.homeGoals',
+                      awayGoals: '$$match.awayGoals',
+                      matchDate: '$$match.matchDate',
+                      stadium: '$$match.stadium',
+                      matchType: '$$match.matchType',
+                      qualifyingStageId: '$$match.qualifyingStageId',
+                      status: '$$match.status',
+                    },
+                    else: null,
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        { $sort: { qualifyingStage: 1 } },
+      ]);
+
+    // Transform the data into the desired format
+    return this.transformToDrawFormat(qualifyingStagesWithMatches);
+  }
+
+  private transformToDrawFormat(rawData: any[]): any {
     // Group stages by qualifying stage number
-    const phase1Stages = qualifyingStages.filter(
-      (stage) => stage.qualifyingStage === 1,
-    );
-    const phase2Stages = qualifyingStages.filter(
-      (stage) => stage.qualifyingStage === 2,
-    );
-    const phase3Stages = qualifyingStages.filter(
-      (stage) => stage.qualifyingStage === 3,
-    );
+    const phase1Stages = rawData.filter((stage) => stage.qualifyingStage === 1);
+    const phase2Stages = rawData.filter((stage) => stage.qualifyingStage === 2);
+    const phase3Stages = rawData.filter((stage) => stage.qualifyingStage === 3);
 
-    // Format each phase
-    const phase1Matches = this.formatStagesAsMatches(phase1Stages, 1);
-    const phase2Matches = this.formatStagesAsMatches(phase2Stages, 2);
-    const phase3Matches = this.formatStagesAsMatches(phase3Stages, 3);
+    // Transform each phase
+    const phase1Matches = this.transformStagesToMatches(phase1Stages, 1);
+    const phase2Matches = this.transformStagesToMatches(phase2Stages, 2);
+    const phase3Matches = this.transformStagesToMatches(phase3Stages, 3);
 
     // Calculate summary
-    const totalMatches = qualifyingStages.length;
-    const completedMatches = qualifyingStages.filter(
-      (stage) => !!(stage as any).winnerTeam,
-    ).length;
+    const totalMatches = rawData.length;
+    const completedMatches = rawData.filter((stage) => stage.winnerTeam).length;
 
     return {
       phase1: phase1Matches,
@@ -584,45 +840,12 @@ export class QualifyingStagesService {
     };
   }
 
-  private formatStagesAsMatches(
-    stages: QualifyingStageResponse[],
-    phaseNumber: number,
-  ): DrawFormatMatch[] {
+  private transformStagesToMatches(stages: any[], phaseNumber: number): any[] {
     return stages.map((stage, index) => {
-      const firstTeamData = {
-        name: (stage as any).firstTeam.teamId.name,
-        logo: (stage as any).firstTeam.teamId.logo,
-        originalId: (stage as any).firstTeam._id.toString(),
-      };
-
-      const secondTeamData = {
-        name: (stage as any).secondTeam.teamId.name,
-        logo: (stage as any).secondTeam.teamId.logo,
-        originalId: (stage as any).secondTeam._id.toString(),
-      };
-
-      // Determine winner placeholder or winner team
-      let winnerPlaceholder: string | undefined;
-      let winnerTeam: any | undefined;
-
-      if ((stage as any).winnerTeam) {
-        winnerTeam = {
-          name: (stage as any).winnerTeam.teamId.name,
-          logo: (stage as any).winnerTeam.teamId.logo,
-          originalId: (stage as any).winnerTeam._id.toString(),
-        };
-      } else {
-        winnerPlaceholder = `Winner of ${this.toTitleCase(firstTeamData.name)} vs ${this.toTitleCase(secondTeamData.name)}`;
-      }
-
       return {
-        id: `phase${phaseNumber}-match-${index + 1}`,
-        matchNumber: index + 1,
-        firstTeam: firstTeamData,
-        secondTeam: secondTeamData,
-        winnerPlaceholder,
-        winnerTeam,
-        stage: phaseNumber,
+        // Keep all original properties
+        _id: stage._id,
+        qualifyingStage: stage.qualifyingStage,
         firstTeamAggregateGoals: stage.firstTeamAggregateGoals,
         secondTeamAggregateGoals: stage.secondTeamAggregateGoals,
         firstLegPlayed: stage.firstLegPlayed,
@@ -630,6 +853,18 @@ export class QualifyingStagesService {
         penaltiesPlayed: stage.penaltiesPlayed,
         firstTeamPenaltyGoals: stage.firstTeamPenaltyGoals,
         secondTeamPenaltyGoals: stage.secondTeamPenaltyGoals,
+        firstTeam: stage.firstTeam,
+        secondTeam: stage.secondTeam,
+        winnerTeam: stage.winnerTeam
+          ? stage.winnerTeam
+          : `Winner of ${this.toTitleCase(stage.firstTeam.teamInfo.name)} vs ${this.toTitleCase(stage.secondTeam.teamInfo.name)}`,
+        firstLegMatch: stage.firstLegMatch,
+        secondLegMatch: stage.secondLegMatch,
+
+        // Add the draw format properties
+        id: `phase${phaseNumber}-match-${index + 1}`,
+        matchNumber: index + 1,
+        stage: phaseNumber,
       };
     });
   }
