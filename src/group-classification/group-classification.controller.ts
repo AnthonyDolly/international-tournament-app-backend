@@ -1,10 +1,6 @@
 import { Controller, Get, Post, Body, Query, Param } from '@nestjs/common';
 import { GroupClassificationService } from './group-classification.service';
-import {
-  CreateGroupClassificationsDto,
-  QueryGroupDto,
-  DrawKnockoutDto,
-} from './dto';
+import { CreateGroupClassificationsDto, QueryGroupDto } from './dto';
 
 @Controller('group-classification')
 export class GroupClassificationController {
@@ -27,10 +23,10 @@ export class GroupClassificationController {
     return this.groupClassificationService.create(createGroupClassificationDto);
   }
 
-  @Post('draw-complete-bracket')
-  drawCompleteBracket(@Body() drawKnockoutDto: DrawKnockoutDto) {
+  @Get('draw-complete-bracket/:tournamentId')
+  drawCompleteBracket(@Param('tournamentId') tournamentId: string) {
     return this.groupClassificationService.drawCompleteTournamentBracket(
-      drawKnockoutDto.tournamentId,
+      tournamentId,
     );
   }
 
