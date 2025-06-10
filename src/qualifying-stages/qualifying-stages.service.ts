@@ -16,6 +16,7 @@ import {
   DrawFormatMatch,
   DrawFormatResult,
 } from './interfaces/draw-format.interface';
+import { envs } from 'src/config/envs';
 
 @Injectable()
 export class QualifyingStagesService {
@@ -107,7 +108,7 @@ export class QualifyingStagesService {
         teamId: {
           ...firstTeamId.teamId,
           logo: firstTeamId.teamId.logo
-            ? `http://localhost:3000/uploads/${firstTeamId.teamId.logo}`
+            ? `${envs.baseUrl}/uploads/${firstTeamId.teamId.logo}`
             : null,
         },
       };
@@ -117,7 +118,7 @@ export class QualifyingStagesService {
         teamId: {
           ...secondTeamId.teamId,
           logo: secondTeamId.teamId.logo
-            ? `http://localhost:3000/uploads/${secondTeamId.teamId.logo}`
+            ? `${envs.baseUrl}/uploads/${secondTeamId.teamId.logo}`
             : null,
         },
       };
@@ -128,7 +129,7 @@ export class QualifyingStagesService {
             teamId: {
               ...winnerTeamId.teamId,
               logo: winnerTeamId.teamId.logo
-                ? `http://localhost:3000/uploads/${winnerTeamId.teamId.logo}`
+                ? `${envs.baseUrl}/uploads/${winnerTeamId.teamId.logo}`
                 : null,
             },
           }
@@ -234,11 +235,7 @@ export class QualifyingStagesService {
                 $cond: {
                   if: '$firstTeamInfo.logo',
                   then: {
-                    $concat: [
-                      process.env.BASE_URL || 'http://localhost:3000',
-                      '/uploads/',
-                      '$firstTeamInfo.logo',
-                    ],
+                    $concat: [envs.baseUrl, '/uploads/', '$firstTeamInfo.logo'],
                   },
                   else: null,
                 },
@@ -254,7 +251,7 @@ export class QualifyingStagesService {
                   if: '$secondTeamInfo.logo',
                   then: {
                     $concat: [
-                      process.env.BASE_URL || 'http://localhost:3000',
+                      envs.baseUrl,
                       '/uploads/',
                       '$secondTeamInfo.logo',
                     ],
@@ -283,7 +280,7 @@ export class QualifyingStagesService {
                       if: { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
                       then: {
                         $concat: [
-                          process.env.BASE_URL || 'http://localhost:3000',
+                          envs.baseUrl,
                           '/uploads/',
                           { $arrayElemAt: ['$winnerTeamInfo.logo', 0] },
                         ],
@@ -541,7 +538,9 @@ export class QualifyingStagesService {
 
   // TODO: It remains to add the nextQualifyingStageMatchId to the draw format
   // TODO: It remains to be seen what happens if there are still qualifying stages to be played
-  async getQualifyingStagesInDrawFormat(tournamentId: string): Promise<any> {
+  async getQualifyingStagesInDrawFormat(
+    tournamentId: string,
+  ): Promise<DrawFormatResult> {
     // Reusable function to create logo URL aggregation expression
     const logoUrlExpression = (logoField: any) => ({
       $let: {
@@ -557,11 +556,7 @@ export class QualifyingStagesService {
               ],
             },
             then: {
-              $concat: [
-                process.env.BASE_URL || 'http://localhost:3000',
-                '/uploads/',
-                '$$logoFile',
-              ],
+              $concat: [envs.baseUrl, '/uploads/', '$$logoFile'],
             },
             else: null,
           },
@@ -775,7 +770,7 @@ export class QualifyingStagesService {
     return this.transformToDrawFormat(qualifyingStagesWithMatches);
   }
 
-  private transformToDrawFormat(rawData: any[]): any {
+  private transformToDrawFormat(rawData: any[]): DrawFormatResult {
     // Group stages by qualifying stage number
     const phase1Stages = rawData.filter((stage) => stage.qualifyingStage === 1);
     const phase2Stages = rawData.filter((stage) => stage.qualifyingStage === 2);
@@ -805,7 +800,10 @@ export class QualifyingStagesService {
     };
   }
 
-  private transformStagesToMatches(stages: any[], phaseNumber: number): any[] {
+  private transformStagesToMatches(
+    stages: any[],
+    phaseNumber: number,
+  ): DrawFormatMatch[] {
     return stages.map((stage, index) => {
       return {
         // Keep all original properties

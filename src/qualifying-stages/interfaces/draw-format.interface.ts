@@ -1,24 +1,53 @@
-interface TeamData {
+interface TeamInfo {
   name: string;
+  country: string | null;
   logo: string | null;
-  originalId: string;
+}
+
+interface TeamData {
+  _id: string | null;
+  teamInfo: TeamInfo;
+}
+
+interface MatchData {
+  _id: string;
+  stage: string;
+  homeTeamId: string;
+  awayTeamId: string;
+  homeGoals: number;
+  awayGoals: number;
+  matchDate: string;
+  stadium: string;
+  matchType: string;
+  qualifyingStageId: string;
+  status: string;
 }
 
 export interface DrawFormatMatch {
-  id: string;
-  matchNumber: number;
+  // Original qualifying stage properties
+  _id: string;
+  qualifyingStage: number;
+  firstTeamAggregateGoals: number;
+  secondTeamAggregateGoals: number;
+  firstLegPlayed: boolean;
+  secondLegPlayed: boolean;
+  penaltiesPlayed: boolean;
+  firstTeamPenaltyGoals: number | null;
+  secondTeamPenaltyGoals: number | null;
+
+  // Team data with full info
   firstTeam: TeamData;
   secondTeam: TeamData;
-  winnerPlaceholder?: string;
-  winnerTeam?: TeamData;
+  winnerTeam: TeamData | null;
+
+  // Match details
+  firstLegMatch: MatchData | null;
+  secondLegMatch: MatchData | null;
+
+  // Draw format properties
+  id: string;
+  matchNumber: number;
   stage: number;
-  firstTeamAggregateGoals?: number;
-  secondTeamAggregateGoals?: number;
-  firstLegPlayed?: boolean;
-  secondLegPlayed?: boolean;
-  penaltiesPlayed?: boolean;
-  firstTeamPenaltyGoals?: number;
-  secondTeamPenaltyGoals?: number;
 }
 
 export interface DrawFormatResult {
